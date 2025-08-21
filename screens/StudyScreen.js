@@ -1,53 +1,42 @@
-// screens/StudyScreen.js
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
-import { auth, db } from '../firebase';
+import { 
+  View, Text, StyleSheet, SafeAreaView, 
+  TouchableOpacity, ScrollView, ActivityIndicator, Alert, Platform 
+} from 'react-native';
+import { auth, db, functions } from '../firebase'; 
+import { httpsCallable } from 'firebase/functions';
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 
-// Mock data to simulate what your friend's OCR will produce
-const mockOcrData = [
-  { day: 'Monday', time: '09:00 - 10:00', subject: 'Physics', room: '101' },
-  { day: 'Monday', time: '11:00 - 12:00', subject: 'Math Lab', room: 'Lab A' },
-  { day: 'Tuesday', time: '10:00 - 11:30', subject: 'History', room: '204' },
-  { day: 'Wednesday', time: '09:00 - 10:00', subject: 'Physics', room: '101' },
-  { day: 'Wednesday', time: '01:00 - 02:30', subject: 'Chemistry', room: '302' },
-  { day: 'Friday', time: '10:00 - 11:30', subject: 'Literature', room: '201' },
-];
-
-const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+// Days of the week
+const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
 export default function StudyScreen() {
   const [schedule, setSchedule] = useState({});
   const [loading, setLoading] = useState(true);
   const currentUser = auth.currentUser;
 
-  // Get today's name to highlight it
   const todayIndex = new Date().getDay();
   const todayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][todayIndex];
 
-  // Fetch timetable from Firebase in real-time
+  // Fetch timetable from Firebase (No changes here)
   useEffect(() => {
     if (!currentUser) return;
-
     const docRef = doc(db, 'timetables', currentUser.uid);
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data().schedule || [];
-        // Group classes by day and sort them by time
         const groupedSchedule = data.reduce((acc, item) => {
           (acc[item.day] = acc[item.day] || []).push(item);
           return acc;
         }, {});
-
-        // Sort classes within each day
         for (const day in groupedSchedule) {
-            groupedSchedule[day].sort((a, b) => a.time.localeCompare(b.time));
+          groupedSchedule[day].sort((a, b) => a.time.localeCompare(b.time));
         }
-
         setSchedule(groupedSchedule);
       } else {
-        setSchedule({}); // No schedule found
+        setSchedule({});
       }
       setLoading(false);
     }, (error) => {
@@ -55,12 +44,10 @@ export default function StudyScreen() {
       Alert.alert("Error", "Could not fetch timetable.");
       setLoading(false);
     });
-
-    // Cleanup listener on unmount
     return () => unsubscribe();
   }, [currentUser]);
 
-  // Function to save timetable data to Firebase
+  // Save timetable to Firebase (No changes here)
   const handleSaveSchedule = async (dataToSave) => {
     if (!currentUser) {
       Alert.alert("Error", "You must be logged in to save a schedule.");
@@ -69,12 +56,121 @@ export default function StudyScreen() {
     try {
       const docRef = doc(db, 'timetables', currentUser.uid);
       await setDoc(docRef, { schedule: dataToSave });
-      Alert.alert("Success", "Timetable saved!");
+      Alert.alert("Success", "Timetable updated!");
     } catch (error) {
       console.error("Error saving timetable: ", error);
       Alert.alert("Error", "Failed to save timetable.");
     }
   };
+
+  // --- NEW, SMARTER SCAN AND PARSE FUNCTION ---
+  const handleScanTimetable = async () => {
+    try {
+      if (Platform.OS !== 'web') {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert("Permission required", "Camera access is needed.");
+          return;
+        }
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        quality: 0.7,
+        base64: true, 
+      });
+
+      if (result.cancelled || !result.base64) return;
+      
+      setLoading(true);
+
+      // 1. Call the cloud function to get the raw text
+      const performOcr = httpsCallable(functions, 'performOcr');
+      const response = await performOcr({ image: result.base64 });
+      const { text } = response.data;
+      
+      // This is a great debugging tool to see what the OCR returns
+      console.log("--- Raw OCR Text --- \n", text);
+
+      if (!text) {
+          Alert.alert("No Text Found", "The OCR couldn't detect any text in the image.");
+          setLoading(false);
+          return;
+      }
+      
+      // 2. A more robust parsing logic for the grid timetable
+      const parsedSchedule = parseGridTimetable(text);
+
+      if (parsedSchedule.length === 0) {
+          Alert.alert("Parsing Failed", "Could not recognize the timetable structure. Please try again with a clearer picture.");
+      } else {
+          await handleSaveSchedule(parsedSchedule);
+      }
+      
+    } catch (error) {
+      console.error("Error scanning timetable: ", error);
+      Alert.alert("Error", `Failed to scan timetable. ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // --- HELPER FUNCTION TO PARSE THE GRID ---
+  const parseGridTimetable = (text) => {
+    const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
+    const schedule = [];
+
+    // Define the time slots from your timetable
+    const timeSlots = {
+      '08:30': '08:30 - 09:35',
+      '09:35': '09:35 - 10:40',
+      '11:00': '11:00 - 12:05',
+      '12:05': '12:05 - 13:10', // Simplified for Y1/Y2 lunch, adjust if needed
+      '13:10': '13:10 - 14:15',
+      '14:15': '14:15 - 15:20',
+      '12:45': '12:45 - 13:50', // Special Friday slots
+      '13:50': '13:50 - 14:55',
+    };
+
+    let dayHeaders = [];
+    
+    // Find the line with the days of the week to map columns
+    const headerLineIndex = lines.findIndex(line => daysOfWeek.some(day => line.includes(day)));
+    if (headerLineIndex !== -1) {
+        // Find which days are present in the header line
+        dayHeaders = daysOfWeek.filter(day => lines[headerLineIndex].includes(day));
+    } else {
+        return []; // Cannot proceed without day headers
+    }
+    
+    lines.forEach(line => {
+        const words = line.split(/\s+/);
+        const time = words[0]; // Assume the first word is the time
+
+        if (timeSlots[time]) {
+            const subjects = words.slice(1);
+            subjects.forEach((subject, index) => {
+                // Check if the subject is not a known break/lunch item
+                const isClass = !['Break', 'Lunch', 'Activities'].some(b => subject.toLowerCase().includes(b.toLowerCase()));
+                if (isClass && index < dayHeaders.length) {
+                    schedule.push({
+                        day: dayHeaders[index],
+                        time: timeSlots[time],
+                        subject: subject,
+                        room: 'N/A', // Room info isn't in this timetable format
+                    });
+                }
+            });
+        } else {
+             // Handle special cases on Friday
+            if (line.includes('A4')) schedule.push({ day: 'Friday', time: timeSlots['12:45'], subject: 'A4', room: 'N/A' });
+            if (line.includes('B4')) schedule.push({ day: 'Friday', time: timeSlots['13:50'], subject: 'B4', room: 'N/A' });
+        }
+    });
+
+    return schedule;
+  };
+
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -82,7 +178,8 @@ export default function StudyScreen() {
         <Text style={styles.headerTitle}>My Timetable</Text>
         <TouchableOpacity 
           style={styles.scanButton} 
-          onPress={() => handleSaveSchedule(mockOcrData)}
+          onPress={handleScanTimetable}
+          disabled={loading}
         >
           <Ionicons name="camera-outline" size={20} color="#fff" />
           <Text style={styles.scanButtonText}>Scan New</Text>
@@ -93,7 +190,7 @@ export default function StudyScreen() {
         {loading ? (
           <ActivityIndicator size="large" color="#007AFF" style={{ marginTop: 50 }} />
         ) : (
-          daysOfWeek.map(day => {
+          Object.keys(schedule).length > 0 ? daysOfWeek.map(day => {
             const dayClasses = schedule[day] || [];
             const isToday = day === todayName;
 
@@ -118,94 +215,30 @@ export default function StudyScreen() {
               </View>
             );
           })
+          : (
+            <View style={styles.noClassesCard}><Text style={styles.noClassesText}>No timetable found. Scan one to get started!</Text></View>
+          )
         )}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
+// Styles remain the same
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#f0f2f5',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e5ea',
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-  },
-  scanButton: {
-    flexDirection: 'row',
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 20,
-    alignItems: 'center',
-  },
-  scanButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    marginLeft: 8,
-  },
-  scheduleContainer: {
-    flex: 1,
-  },
-  daySection: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 10,
-  },
-  dayHeader: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    color: '#3c3c43',
-  },
-  todayHeader: {
-    color: '#007AFF', // Highlight color for the current day
-  },
-  classCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  classTime: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#007AFF',
-  },
-  classSubject: {
-    fontSize: 20,
-    fontWeight: '600',
-    marginVertical: 5,
-  },
-  classRoom: {
-    fontSize: 16,
-    color: '#8e8e93',
-  },
-  noClassesCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
-    alignItems: 'center',
-  },
-  noClassesText: {
-    fontSize: 16,
-    color: '#8e8e93',
-  },
+  safeArea: { flex: 1, backgroundColor: '#f0f2f5' },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 15, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e5e5ea' },
+  headerTitle: { fontSize: 28, fontWeight: 'bold' },
+  scanButton: { flexDirection: 'row', backgroundColor: '#007AFF', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, alignItems: 'center' },
+  scanButtonText: { color: '#fff', fontWeight: 'bold', marginLeft: 8 },
+  scheduleContainer: { flex: 1 },
+  daySection: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 10 },
+  dayHeader: { fontSize: 22, fontWeight: 'bold', marginBottom: 15, color: '#3c3c43' },
+  todayHeader: { color: '#007AFF' },
+  classCard: { backgroundColor: '#fff', borderRadius: 12, padding: 20, marginBottom: 15, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 },
+  classTime: { fontSize: 16, fontWeight: 'bold', color: '#007AFF' },
+  classSubject: { fontSize: 20, fontWeight: '600', marginVertical: 5 },
+  classRoom: { fontSize: 16, color: '#8e8e93' },
+  noClassesCard: { backgroundColor: '#fff', borderRadius: 12, padding: 20, alignItems: 'center', margin: 20 },
+  noClassesText: { fontSize: 16, color: '#8e8e93' },
 });
