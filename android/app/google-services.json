@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "595188989230",
+    "project_id": "edumitra-d2be8",
+    "storage_bucket": "edumitra-d2be8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:595188989230:android:7dd90bf6f70740f7d7cebf",
+        "android_client_info": {
+          "package_name": "com.hackstreetboys.edumitra"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCj8sXd-PJXvhuL9Z5-kxEjLlfsFQcOKGU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
