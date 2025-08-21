@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Image, StyleSheet, Alert, TouchableOpacity, Button } from 'react-native';
+import { View, Text, Image, StyleSheet, Alert, TouchableOpacity, Button, Platform } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { signOut } from 'firebase/auth';
 import { auth, db, storage } from '../firebase';
@@ -36,6 +36,16 @@ export default function ProfileScreen() {
   }, [currentUser]);
 
   const pickImage = async () => {
+    // *** ADDED PERMISSION REQUEST ***
+    // No permissions needed for web. For mobile, we need to ask.
+    if (Platform.OS !== 'web') {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+            Alert.alert('Sorry, we need camera roll permissions to make this work!');
+            return;
+        }
+    }
+
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
@@ -119,7 +129,7 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 10 },
   language: { marginTop: 30, alignItems: 'center' },
   logoutButtonContainer: {
-    marginTop: 'auto', // Pushes the button to the bottom
+    marginTop: 'auto',
     marginBottom: 20,
     width: '80%',
   },
