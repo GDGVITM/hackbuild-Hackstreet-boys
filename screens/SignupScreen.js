@@ -16,11 +16,9 @@ export default function SignupScreen({ navigation }) {
     }
 
     try {
-      // Create user in Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // Save additional info in Firestore
       await setDoc(doc(db, 'users', user.uid), {
         name: name,
         email: email,
@@ -28,7 +26,8 @@ export default function SignupScreen({ navigation }) {
       });
 
       Alert.alert('Success', 'Account created successfully!');
-      navigation.replace('MainTabs'); // Navigate to app
+      // The onAuthStateChanged listener in App.js will handle navigation automatically.
+      
     } catch (error) {
       Alert.alert('Error', error.message);
     }
@@ -37,29 +36,9 @@ export default function SignupScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>EduMitra Signup</Text>
-
-      <TextInput
-        style={styles.input}
-        placeholder="Full Name"
-        value={name}
-        onChangeText={setName}
-      />
-
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-      />
-
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
-
+      <TextInput style={styles.input} placeholder="Full Name" value={name} onChangeText={setName} />
+      <TextInput style={styles.input} placeholder="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
+      <TextInput style={styles.input} placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry />
       <Button title="Sign Up" onPress={handleSignup} />
       <Text style={styles.link} onPress={() => navigation.navigate('Login')}>
         Already have an account? Login

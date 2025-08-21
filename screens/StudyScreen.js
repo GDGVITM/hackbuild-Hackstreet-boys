@@ -1,29 +1,67 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, SafeAreaView,
-  TouchableOpacity, ScrollView, ActivityIndicator, Alert, Platform,
+  View,
+  Text,
+  StyleSheet,
+  SafeAreaView,
+  TouchableOpacity,
+  ScrollView,
+  ActivityIndicator,
+  Alert,
+  Platform,
+  Dimensions,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { auth, db, functions } from '../firebase';
 import { httpsCallable } from 'firebase/functions';
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
-import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
+import { Card } from '../components/common/Card';
+import { Button } from '../components/common/Button';
+import { COLORS, TYPOGRAPHY, SPACING, SHADOWS } from '../theme';
 
+const { width } = Dimensions.get('window');
 const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+
+const TimeSlotCard = ({ time, subject, room, isActive }) => (
+  <View style={[styles.timeSlot, isActive && styles.activeTimeSlot]}>
+    <View style={styles.timeSlotHeader}>
+      <Text style={[styles.timeText, isActive && styles.activeTimeText]}>{time}</Text>
+      {isActive && <View style={styles.liveIndicator} />}
+    </View>
+    <Text style={[styles.subjectText, isActive && styles.activeSubjectText]}>{subject}</Text>
+    <Text style={[styles.roomText, isActive && styles.activeRoomText]}>Room: {room}</Text>
+  </View>
+);
+
+const DayTab = ({ day, isSelected, onPress, hasClasses }) => (
+  <TouchableOpacity
+    style={[styles.dayTab, isSelected && styles.selectedDayTab]}
+    onPress={onPress}
+    activeOpacity={0.8}
+  >
+    <Text style={[styles.dayTabText, isSelected && styles.selectedDayTabText]}>
+      {day.slice(0, 3)}
+    </Text>
+    {hasClasses && <View style={styles.dayIndicator} />}
+  </TouchableOpacity>
+);
 
 export default function StudyScreen() {
   const [schedule, setSchedule] = useState({});
   const [loading, setLoading] = useState(false);
+  const [selectedDay, setSelectedDay] = useState(getCurrentDay());
   const currentUser = auth.currentUser;
 
-  const todayIndex = new Date().getDay();
-  const todayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][todayIndex];
+  function getCurrentDay() {
+    const today = new Date().getDay();
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    return daysOfWeek.includes(dayNames[today]) ? dayNames[today] : 'Monday';
+  }
 
   useEffect(() => {
-    if (!currentUser) {
-      setLoading(false);
-      return;
-    }
+    if (!currentUser) return;
 
     setLoading(true);
     const docRef = doc(db, 'timetables', currentUser.uid);
@@ -34,6 +72,7 @@ export default function StudyScreen() {
           (acc[item.day] = acc[item.day] || []).push(item);
           return acc;
         }, {});
+        
         for (const day in groupedSchedule) {
           groupedSchedule[day].sort((a, b) => a.time.localeCompare(b.time));
         }
@@ -50,24 +89,9 @@ export default function StudyScreen() {
     return () => unsubscribe();
   }, [currentUser]);
 
-  const handleSaveSchedule = async (dataToSave) => {
-    if (!currentUser) {
-      Alert.alert("Error", "You must be logged in to save a schedule.");
-      return;
-    }
-    try {
-      const docRef = doc(db, 'timetables', currentUser.uid);
-      await setDoc(docRef, { schedule: dataToSave });
-      Alert.alert("Success", `Timetable updated with ${dataToSave.length} classes!`);
-    } catch (error) {
-      console.error("Error saving timetable: ", error);
-      Alert.alert("Error", "Failed to save timetable.");
-    }
-  };
-
   const handleScanTimetable = async () => {
     if (!auth.currentUser) {
-      Alert.alert("Authentication Error", "You are not logged in. Please restart the app or log in again.");
+      Alert.alert("Authentication Error", "You are not logged in.");
       return;
     }
 
@@ -86,59 +110,53 @@ export default function StudyScreen() {
         base64: true,
       });
 
-      console.log("Image Picker Result:", JSON.stringify(result, null, 2));
-
-      if (result.canceled) {
-        console.log("User cancelled image picker.");
-        return;
-      }
+      if (result.canceled) return;
 
       const asset = result.assets && result.assets[0];
       if (!asset || !asset.base64) {
-        Alert.alert(
-          "Image Error",
-          "Failed to get image data after taking the photo. This might be a device memory issue. Please try again.",
-        );
+        Alert.alert("Image Error", "Failed to get image data.");
         return;
       }
 
       setLoading(true);
-
-      // --- ADDED TOKEN REFRESH ---
-      // This forces the app to get a fresh authentication token before making the call.
       await auth.currentUser.getIdToken(true);
 
       const performOcr = httpsCallable(functions, 'performOcr');
       const response = await performOcr({ image: asset.base64 });
       
       const { annotations } = response.data;
-
       if (!annotations || annotations.length === 0) {
-          Alert.alert("No Text Found", "The OCR couldn't detect any text.");
-          setLoading(false);
-          return;
+        Alert.alert("No Text Found", "The OCR couldn't detect any text.");
+        setLoading(false);
+        return;
       }
       
       const parsedSchedule = parseTimetableWithCoordinates(annotations);
-
       if (parsedSchedule.length === 0) {
-          Alert.alert("Parsing Failed", "Could not find any valid classes from the image's text.");
+        Alert.alert("Parsing Failed", "Could not find any valid classes from the image's text.");
       } else {
-          await handleSaveSchedule(parsedSchedule);
+        await handleSaveSchedule(parsedSchedule);
       }
       
     } catch (error) {
-      console.error("An error occurred in handleScanTimetable:", error);
-      if (error.code === 'unauthenticated') {
-        Alert.alert("Authentication Error", "You must be logged in to use this feature. Please try logging in again.");
-      } else {
-        Alert.alert("An Unexpected Error Occurred", error.message);
-      }
+      console.error("An error occurred:", error);
+      Alert.alert("Error", error.message);
     } finally {
       setLoading(false);
     }
   };
-  
+
+  const handleSaveSchedule = async (dataToSave) => {
+    if (!currentUser) return;
+    try {
+      const docRef = doc(db, 'timetables', currentUser.uid);
+      await setDoc(docRef, { schedule: dataToSave });
+      Alert.alert("Success", `Timetable updated with ${dataToSave.length} classes!`);
+    } catch (error) {
+      Alert.alert("Error", "Failed to save timetable.");
+    }
+  };
+
   const parseTimetableWithCoordinates = (ocrData) => {
     const finalSchedule = [];
     const timeSlots = {
@@ -157,6 +175,7 @@ export default function StudyScreen() {
     potentialSubjects.forEach((subject) => {
         const subjectYCenter = (subject.box_2d[1] + subject.box_2d[3]) / 2;
         const subjectXCenter = (subject.box_2d[0] + subject.box_2d[2]) / 2;
+        
         let matchingTime = null;
         if (times.length > 0) {
             matchingTime = times.reduce((prev, curr) => {
@@ -165,6 +184,7 @@ export default function StudyScreen() {
                 return (Math.abs(currYCenter - subjectYCenter) < Math.abs(prevYCenter - subjectYCenter) ? curr : prev);
             });
         }
+        
         let matchingDay = null;
         if (days.length > 0) {
             matchingDay = days.reduce((prev, curr) => {
@@ -173,6 +193,7 @@ export default function StudyScreen() {
                 return (Math.abs(currXCenter - subjectXCenter) < Math.abs(prevXCenter - subjectXCenter) ? curr : prev);
             });
         }
+        
         if (matchingDay && matchingTime) {
             finalSchedule.push({
                 day: matchingDay.label,
@@ -185,51 +206,112 @@ export default function StudyScreen() {
     return Array.from(new Set(finalSchedule.map(JSON.stringify))).map(JSON.parse);
   };
 
+  const getCurrentTimeSlot = () => {
+    const now = new Date();
+    const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    return currentTime;
+  };
+
+  const isActiveClass = (timeSlot) => {
+    const [startTime] = timeSlot.split(' - ');
+    const currentTime = getCurrentTimeSlot();
+    return startTime <= currentTime && currentTime < timeSlot.split(' - ')[1];
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>My Timetable</Text>
-        <TouchableOpacity
-          style={styles.scanButton}
-          onPress={handleScanTimetable}
-          disabled={loading}
-        >
-          {loading ? <ActivityIndicator color="#fff" /> : <Ionicons name="camera-outline" size={20} color="#fff" />}
-          <Text style={styles.scanButtonText}>Scan New</Text>
-        </TouchableOpacity>
+      {/* Header */}
+      <LinearGradient
+        colors={COLORS.primaryGradient}
+        style={styles.headerGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.headerTitle}>My Timetable</Text>
+            <Text style={styles.headerSubtitle}>Stay organized with your schedule</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.scanButton}
+            onPress={handleScanTimetable}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color={COLORS.primary} />
+            ) : (
+              <Ionicons name="camera-outline" size={24} color={COLORS.primary} />
+            )}
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
+
+      {/* Day Tabs */}
+      <View style={styles.dayTabs}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          {daysOfWeek.map((day) => (
+            <DayTab
+              key={day}
+              day={day}
+              isSelected={selectedDay === day}
+              onPress={() => setSelectedDay(day)}
+              hasClasses={schedule[day] && schedule[day].length > 0}
+            />
+          ))}
+        </ScrollView>
       </View>
 
-      <ScrollView style={styles.scheduleContainer}>
+      {/* Schedule Content */}
+      <ScrollView style={styles.scheduleContainer} showsVerticalScrollIndicator={false}>
         {loading && !schedule ? (
-          <ActivityIndicator size="large" color="#007AFF" style={{ marginTop: 50 }} />
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+            <Text style={styles.loadingText}>Loading your schedule...</Text>
+          </View>
         ) : (
-          Object.keys(schedule).length > 0 ? daysOfWeek.map((day) => {
-            const dayClasses = schedule[day] || [];
-            const isToday = day === todayName;
-            return (
-              <View key={day} style={styles.daySection}>
-                <Text style={[styles.dayHeader, isToday && styles.todayHeader]}>
-                  {day}
-                </Text>
-                {dayClasses.length > 0 ? (
-                  dayClasses.map((item, index) => (
-                    <View key={index} style={styles.classCard}>
-                      <Text style={styles.classTime}>{item.time}</Text>
-                      <Text style={styles.classSubject}>{item.subject}</Text>
-                      <Text style={styles.classRoom}>Room: {item.room}</Text>
-                    </View>
-                  ))
-                ) : (
-                  <View style={styles.noClassesCard}>
-                    <Text style={styles.noClassesText}>No classes scheduled.</Text>
-                  </View>
-                )}
-              </View>
-            );
-          })
-          : (
-            <View style={styles.noClassesCard}><Text style={styles.noClassesText}>No timetable found. Scan one to get started!</Text></View>
-          )
+          <View style={styles.scheduleContent}>
+            {schedule[selectedDay] && schedule[selectedDay].length > 0 ? (
+              <>
+                <View style={styles.dayHeader}>
+                  <Text style={styles.dayTitle}>{selectedDay}</Text>
+                  <Text style={styles.classCount}>
+                    {schedule[selectedDay].length} {schedule[selectedDay].length === 1 ? 'class' : 'classes'}
+                  </Text>
+                </View>
+                <View style={styles.timeSlots}>
+                  {schedule[selectedDay].map((item, index) => (
+                    <TimeSlotCard
+                      key={index}
+                      time={item.time}
+                      subject={item.subject}
+                      room={item.room}
+                      isActive={selectedDay === getCurrentDay() && isActiveClass(item.time)}
+                    />
+                  ))}
+                </View>
+              </>
+            ) : (
+              <Card style={styles.emptyStateCard}>
+                <View style={styles.emptyState}>
+                  <Ionicons name="calendar-outline" size={64} color={COLORS.textTertiary} />
+                  <Text style={styles.emptyStateTitle}>No Classes Today</Text>
+                  <Text style={styles.emptyStateText}>
+                    {Object.keys(schedule).length === 0
+                      ? 'Scan your timetable to get started'
+                      : `No classes scheduled for ${selectedDay}`}
+                  </Text>
+                  {Object.keys(schedule).length === 0 && (
+                    <Button
+                      title="Scan Timetable"
+                      onPress={handleScanTimetable}
+                      style={styles.emptyStateButton}
+                      size="small"
+                    />
+                  )}
+                </View>
+              </Card>
+            )}
+          </View>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -237,19 +319,173 @@ export default function StudyScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#f0f2f5' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 15, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e5e5ea' },
-  headerTitle: { fontSize: 28, fontWeight: 'bold' },
-  scanButton: { flexDirection: 'row', backgroundColor: '#007AFF', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, alignItems: 'center', minWidth: 120, justifyContent: 'center' },
-  scanButtonText: { color: '#fff', fontWeight: 'bold', marginLeft: 8 },
-  scheduleContainer: { flex: 1 },
-  daySection: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 10 },
-  dayHeader: { fontSize: 22, fontWeight: 'bold', marginBottom: 15, color: '#3c3c43' },
-  todayHeader: { color: '#007AFF' },
-  classCard: { backgroundColor: '#fff', borderRadius: 12, padding: 20, marginBottom: 15, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 },
-  classTime: { fontSize: 16, fontWeight: 'bold', color: '#007AFF' },
-  classSubject: { fontSize: 20, fontWeight: '600', marginVertical: 5 },
-  classRoom: { fontSize: 16, color: '#8e8e93' },
-  noClassesCard: { backgroundColor: '#fff', borderRadius: 12, padding: 20, alignItems: 'center', margin: 20 },
-  noClassesText: { fontSize: 16, color: '#8e8e93' },
+  safeArea: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  headerGradient: {
+    paddingBottom: SPACING.lg,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.lg,
+  },
+  headerTitle: {
+    ...TYPOGRAPHY.h2,
+    color: COLORS.surface,
+    fontWeight: '700',
+  },
+  headerSubtitle: {
+    ...TYPOGRAPHY.body2,
+    color: COLORS.surface,
+    opacity: 0.9,
+    marginTop: 4,
+  },
+  scanButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: COLORS.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...SHADOWS.medium,
+  },
+  dayTabs: {
+    backgroundColor: COLORS.surface,
+    paddingVertical: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderLight,
+  },
+  dayTab: {
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
+    marginHorizontal: SPACING.xs,
+    borderRadius: 20,
+    alignItems: 'center',
+    minWidth: 60,
+  },
+  selectedDayTab: {
+    backgroundColor: COLORS.primary,
+  },
+  dayTabText: {
+    ...TYPOGRAPHY.body2,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
+  },
+  selectedDayTabText: {
+    color: COLORS.surface,
+  },
+  dayIndicator: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: COLORS.success,
+    marginTop: 4,
+  },
+  scheduleContainer: {
+    flex: 1,
+  },
+  scheduleContent: {
+    padding: SPACING.lg,
+  },
+  dayHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.lg,
+  },
+  dayTitle: {
+    ...TYPOGRAPHY.h3,
+    color: COLORS.textPrimary,
+  },
+  classCount: {
+    ...TYPOGRAPHY.body2,
+    color: COLORS.textTertiary,
+  },
+  timeSlots: {
+    gap: SPACING.md,
+  },
+  timeSlot: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    padding: SPACING.lg,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.borderLight,
+    ...SHADOWS.small,
+  },
+  activeTimeSlot: {
+    borderLeftColor: COLORS.success,
+    backgroundColor: `${COLORS.success}10`,
+  },
+  timeSlotHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+  },
+  timeText: {
+    ...TYPOGRAPHY.body2,
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
+  activeTimeText: {
+    color: COLORS.success,
+  },
+  liveIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: COLORS.success,
+  },
+  subjectText: {
+    ...TYPOGRAPHY.h4,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.xs,
+  },
+  activeSubjectText: {
+    color: COLORS.success,
+  },
+  roomText: {
+    ...TYPOGRAPHY.body2,
+    color: COLORS.textTertiary,
+  },
+  activeRoomText: {
+    color: COLORS.textSecondary,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: SPACING.xxl,
+  },
+  loadingText: {
+    ...TYPOGRAPHY.body1,
+    color: COLORS.textTertiary,
+    marginTop: SPACING.md,
+  },
+  emptyStateCard: {
+    marginTop: SPACING.xl,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: SPACING.xl,
+  },
+  emptyStateTitle: {
+    ...TYPOGRAPHY.h3,
+    color: COLORS.textPrimary,
+    marginTop: SPACING.lg,
+    marginBottom: SPACING.sm,
+  },
+  emptyStateText: {
+    ...TYPOGRAPHY.body1,
+    color: COLORS.textTertiary,
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  emptyStateButton: {
+    marginTop: SPACING.lg,
+  },
 });
