@@ -16,6 +16,9 @@ import StudyScreen from './screens/StudyScreen';
 import CommunityScreen from './screens/CommunityScreen';
 import CareerScreen from './screens/career/CareerScreen'; // Corrected Path
 import ProfileScreen from './screens/ProfileScreen';
+// import CareerScreen from './screens/career/CareerScreen';
+import ResumeBuilder from './screens/career/ResumeBuilder';
+import PreviousResumes from './screens/career/PreviousResumes'; // Corrected Path
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
