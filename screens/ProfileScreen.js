@@ -7,15 +7,16 @@ import {
   Alert, 
   TouchableOpacity, 
   Button, 
-  Platform, 
   Switch, 
   SafeAreaView, 
   ScrollView, 
-  TextInput 
+  TextInput,
+  ActivityIndicator, // ✨ NEW
 } from 'react-native';
 import { signOut } from 'firebase/auth';
 import { auth, db, storage } from '../firebase';
-import { doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
+// ✨ IMPORT FIRESTORE FUNCTIONS ✨
+import { doc, getDoc, setDoc, collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -28,14 +29,17 @@ export default function ProfileScreen() {
   const [isShared, setIsShared] = useState(false);
   const [linkedin, setLinkedin] = useState('');
   const [github, setGithub] = useState('');
-  const [grades, setGrades] = useState(initializeGrades()); // State for SGPA values
+  const [grades, setGrades] = useState(initializeGrades());
+  const [quizHistory, setQuizHistory] = useState([]); // ✨ NEW state for quiz history
+  const [loadingHistory, setLoadingHistory] = useState(true); // ✨ NEW loading state
   const currentUser = auth.currentUser;
 
   useEffect(() => {
-    const fetchUserData = async () => {
-      if (!currentUser) return;
-      const docRef = doc(db, 'users', currentUser.uid);
-      const docSnap = await getDoc(docRef);
+    if (!currentUser) return;
+    
+    // Fetch user data
+    const userDocRef = doc(db, 'users', currentUser.uid);
+    const unsubscribeUser = onSnapshot(userDocRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
         setUserData(data);
@@ -44,7 +48,6 @@ export default function ProfileScreen() {
         if (data.linkedin) setLinkedin(data.linkedin);
         if (data.github) setGithub(data.github);
         
-        // Fetch grades or initialize if they don't exist
         if (data.grades && data.grades.length > 0) {
           const fetchedGrades = initializeGrades();
           data.grades.forEach(grade => {
@@ -53,12 +56,31 @@ export default function ProfileScreen() {
           setGrades(fetchedGrades);
         }
       }
+    });
+
+    // ✨ Fetch quiz history ✨
+    const historyCollectionRef = collection(db, 'users', currentUser.uid, 'quizAttempts');
+    const q = query(historyCollectionRef, orderBy('timestamp', 'desc'), limit(3));
+    const unsubscribeHistory = onSnapshot(q, (querySnapshot) => {
+      const history = [];
+      querySnapshot.forEach((doc) => {
+        history.push({ id: doc.id, ...doc.data() });
+      });
+      setQuizHistory(history);
+      setLoadingHistory(false);
+    }, (error) => {
+      console.error("Error fetching quiz history: ", error);
+      setLoadingHistory(false);
+    });
+    
+    // Cleanup listeners
+    return () => {
+      unsubscribeUser();
+      unsubscribeHistory();
     };
-    fetchUserData();
   }, [currentUser]);
 
   const handleSgpaChange = (text, index) => {
-    // Only allow numbers and one decimal point
     if (/^\d*\.?\d*$/.test(text)) {
         const newGrades = [...grades];
         newGrades[index].sgpa = text;
@@ -70,7 +92,6 @@ export default function ProfileScreen() {
     if (!currentUser) return;
     try {
       const userDocRef = doc(db, 'users', currentUser.uid);
-      // Filter out semesters with no SGPA entered
       const gradesToSave = grades.filter(g => g.sgpa.trim() !== '');
       await setDoc(userDocRef, { grades: gradesToSave }, { merge: true });
       Alert.alert('Success', 'Your grades have been saved.');
@@ -79,13 +100,12 @@ export default function ProfileScreen() {
     }
   };
 
-  // --- (Other functions like pickImage, uploadImage, handleSaveDetails, etc. remain the same) ---
+  // --- (Other functions like pickImage, uploadImage, etc. would be here) ---
   const pickImage = async () => { /* ... existing code ... */ };
   const uploadImage = async (uri) => { /* ... existing code ... */ };
   const handleSaveDetails = async () => { /* ... existing code ... */ };
   const handleShareProfileToggle = async (value) => { /* ... existing code ... */ };
   const handleLogout = () => { signOut(auth).catch(error => Alert.alert('Logout Error', error.message)); };
-
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -100,7 +120,29 @@ export default function ProfileScreen() {
             <Text style={styles.name}>{userData ? userData.name : 'Loading...'}</Text>
             <Text style={styles.email}>{userData ? userData.email : ''}</Text>
             
-            {/* Grades Card - NEW */}
+            {/* ✨ NEW: Quiz History Card ✨ */}
+            <View style={styles.card}>
+                <Text style={styles.cardTitle}>Recent Quiz Attempts</Text>
+                {loadingHistory ? (
+                  <ActivityIndicator color="#007AFF" />
+                ) : quizHistory.length > 0 ? (
+                  quizHistory.map(attempt => (
+                    <View key={attempt.id} style={styles.historyItem}>
+                      <View style={styles.historyDetails}>
+                        <Text style={styles.historyTitle}>{attempt.quizTitle}</Text>
+                        <Text style={styles.historyDate}>
+                          {attempt.timestamp ? new Date(attempt.timestamp.toDate()).toLocaleDateString() : 'No date'}
+                        </Text>
+                      </View>
+                      <Text style={styles.historyScore}>{attempt.score}/{attempt.totalQuestions}</Text>
+                    </View>
+                  ))
+                ) : (
+                  <Text style={styles.noHistoryText}>No quiz attempts recorded yet.</Text>
+                )}
+            </View>
+
+            {/* Grades Card */}
             <View style={styles.card}>
                 <Text style={styles.cardTitle}>Semester Grades (SGPA)</Text>
                 <View style={styles.gradesGrid}>
@@ -173,7 +215,6 @@ const styles = StyleSheet.create({
     switchContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     switchLabel: { fontSize: 16 },
     logoutButtonContainer: { marginTop: 20, width: '100%' },
-    // New Styles for Grades
     gradesGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
@@ -181,7 +222,7 @@ const styles = StyleSheet.create({
         marginBottom: 15,
     },
     gradeInputContainer: {
-        width: '22%', // Adjust width to fit 4 items per row with some spacing
+        width: '22%',
         marginBottom: 15,
         alignItems: 'center',
     },
@@ -198,5 +239,37 @@ const styles = StyleSheet.create({
         width: '100%',
         textAlign: 'center',
         fontSize: 16,
+    },
+    // ✨ New Styles for Quiz History ✨
+    historyItem: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 10,
+      borderBottomWidth: 1,
+      borderBottomColor: '#f0f2f5',
+    },
+    historyDetails: {
+      flex: 1,
+    },
+    historyTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: '#333',
+    },
+    historyDate: {
+      fontSize: 12,
+      color: '#8e8e93',
+      marginTop: 2,
+    },
+    historyScore: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: '#007AFF',
+    },
+    noHistoryText: {
+      fontSize: 14,
+      color: '#8e8e93',
+      textAlign: 'center',
     },
 });

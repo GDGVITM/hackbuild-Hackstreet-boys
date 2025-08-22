@@ -11,7 +11,9 @@ import {
   Platform,
   Modal,
   TextInput,
+  Image,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native'; // ✨ IMPORT useNavigation
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -21,11 +23,12 @@ import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { COLORS, TYPOGRAPHY, SPACING, SHADOWS } from '../theme';
 
-// --- 💡 IMPORTANT: Add your Google Cloud Vision API Key here 💡 ---
+// --- IMPORTANT: Add your Google Cloud Vision API Key here ---
 const GOOGLE_CLOUD_VISION_API_KEY = 'AIzaSyD5mp7MVxsCpfO_lalbon-aECRdAapdWlI';
 
 const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
+// --- Existing Timetable Components (No Changes) ---
 const TimeSlotCard = ({ time, subject, room, isActive }) => (
   <View style={[styles.timeSlot, isActive && styles.activeTimeSlot]}>
     <View style={styles.timeSlotHeader}>
@@ -50,14 +53,74 @@ const DayTab = ({ day, isSelected, onPress, hasClasses }) => (
   </TouchableOpacity>
 );
 
+// --- QuizCard Component ---
+const QuizCard = ({ quiz, onStart }) => (
+    <Card style={styles.quizCard}>
+        <View style={styles.quizIconContainer}>
+            <Ionicons name={quiz.icon} size={28} color={COLORS.primary} />
+        </View>
+        <View style={styles.quizDetails}>
+            <Text style={styles.quizTitle}>{quiz.title}</Text>
+            <Text style={styles.quizSubject}>{quiz.subject}</Text>
+            <View style={styles.quizMeta}>
+                <Text style={styles.quizMetaText}>{quiz.questions} Questions</Text>
+                <Text style={styles.quizMetaText}>•</Text>
+                <Text style={styles.quizMetaText}>{quiz.timeLimit}</Text>
+            </View>
+        </View>
+        <TouchableOpacity style={styles.startQuizButton} onPress={() => onStart(quiz)}>
+            <Ionicons name="play-circle-outline" size={24} color={COLORS.primary} />
+        </TouchableOpacity>
+    </Card>
+);
+
+// --- CourseCard Component ---
+const CourseCard = ({ course }) => (
+  <Card style={styles.courseCard}>
+    <Image source={{ uri: course.image }} style={styles.courseImage} />
+    <View style={styles.courseInfo}>
+        <Text style={styles.courseTitle}>{course.title}</Text>
+        <Text style={styles.courseInstructor}>By {course.instructor}</Text>
+        <View style={styles.courseMeta}>
+            <View style={styles.courseMetaItem}>
+                <Ionicons name="time-outline" size={14} color={COLORS.textTertiary} />
+                <Text style={styles.courseMetaText}>{course.duration}</Text>
+            </View>
+            <View style={styles.courseMetaItem}>
+                <Ionicons name="star-outline" size={14} color={COLORS.textTertiary} />
+                <Text style={styles.courseMetaText}>{course.rating} ({course.students} students)</Text>
+            </View>
+        </View>
+    </View>
+  </Card>
+);
+
+
 export default function StudyScreen() {
+  const navigation = useNavigation(); // ✨ INITIALIZE navigation
   const [schedule, setSchedule] = useState({});
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState(getCurrentDay());
   const [isConfirmationModalVisible, setConfirmationModalVisible] = useState(false);
   const [editableTimetableText, setEditableTimetableText] = useState('');
+  const [selectedTab, setSelectedTab] = useState('timetable');
   const currentUser = auth.currentUser;
 
+  // --- Mock Data ---
+  const mockQuizzes = [
+    { id: 1, title: 'Calculus I Basics', subject: 'Mathematics', questions: 5, timeLimit: '10 mins', icon: 'calculator-outline' },
+    { id: 2, title: 'Data Structures Intro', subject: 'Computer Science', questions: 5, timeLimit: '10 mins', icon: 'code-slash-outline' },
+    { id: 3, title: 'Laws of Motion', subject: 'Physics', questions: 5, timeLimit: '10 mins', icon: 'flame-outline' },
+    { id: 4, title: 'Periodic Table Basics', subject: 'Chemistry', questions: 5, timeLimit: '10 mins', icon: 'flask-outline' },
+  ];
+
+  const mockCourses = [
+    { id: 1, title: 'Introduction to Python', instructor: 'Dr. Alan Grant', duration: '6 Weeks', rating: 4.8, students: '1.2k', image: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=400' },
+    { id: 2, title: 'Advanced React Native', instructor: 'Dr. Ellie Sattler', duration: '8 Weeks', rating: 4.9, students: '850', image: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400' },
+    { id: 3, title: 'Machine Learning A-Z', instructor: 'Dr. Ian Malcolm', duration: '12 Weeks', rating: 4.7, students: '2.5k', image: 'https://images.unsplash.com/photo-1507146426996-321341aa1ac5?w=400' },
+  ];
+
+  // --- Existing Functions (No Changes) ---
   function getCurrentDay() {
     const today = new Date().getDay();
     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -194,24 +257,15 @@ export default function StudyScreen() {
     setEditableTimetableText('');
   };
 
-  /**
-   * --- ✨ FINAL, ROBUST PARSER FOR VERTICAL OCR TEXT ✨ ---
-   * This parser is specifically designed to handle the single-column text format
-   * that the OCR is producing, making it much more reliable.
-   */
   const parseTimetableFromText = (text) => {
     const lines = text.split('\n').filter(line => line.trim() !== '' && line.toLowerCase() !== 'time');
     const finalSchedule = [];
     const timeRegex = /(\d{2}:\d{2}-\d{2}:\d{2})/;
-
-    // 1. Find the day headers first
     const detectedDays = lines.filter(line => daysOfWeek.includes(line.trim()));
     if (detectedDays.length === 0) {
         console.error("Parser Error: No days found in the text.");
         return [];
     }
-
-    // 2. Find all time slots and their line numbers
     const timeSlotIndexes = [];
     lines.forEach((line, index) => {
         if (timeRegex.test(line)) {
@@ -223,17 +277,13 @@ export default function StudyScreen() {
         console.error("Parser Error: No time slots found in the text.");
         return [];
     }
-
-    // 3. For each time slot, grab the subjects that follow it
     timeSlotIndexes.forEach((timeSlotInfo, i) => {
         const startIndex = timeSlotInfo.index + 1;
-        // The end index is the start of the next time slot, or the end of the file
         const endIndex = (i + 1 < timeSlotIndexes.length) ? timeSlotIndexes[i+1].index : lines.length;
         
         const subjects = lines.slice(startIndex, endIndex)
                               .filter(line => !daysOfWeek.includes(line.trim()) && line.trim().toLowerCase() !== 'lunch');
 
-        // 4. Assign subjects to days based on their order
         subjects.forEach((subject, subjectIndex) => {
             if (subjectIndex < detectedDays.length) {
                 const day = detectedDays[subjectIndex];
@@ -260,6 +310,95 @@ export default function StudyScreen() {
     const [startTime, endTime] = timeSlot.split('-');
     const currentTime = getCurrentTimeSlot();
     return startTime <= currentTime && currentTime < endTime;
+  };
+  
+  // --- ✨ UPDATED Handler Function ---
+  const handleStartQuiz = (quiz) => {
+    navigation.navigate('Quiz', { quiz: quiz });
+  };
+
+  // --- TabButton Component ---
+  const TabButton = ({ tab, title, icon }) => (
+    <TouchableOpacity
+      style={[styles.mainTabButton, selectedTab === tab && styles.activeTabButton]}
+      onPress={() => setSelectedTab(tab)}
+      activeOpacity={0.8}
+    >
+      <Ionicons 
+        name={icon} 
+        size={20} 
+        color={selectedTab === tab ? COLORS.primary : COLORS.textTertiary} 
+      />
+      <Text style={[styles.mainTabText, selectedTab === tab && styles.activeTabText]}>{title}</Text>
+    </TouchableOpacity>
+  );
+
+  // --- renderContent Function to handle tabs ---
+  const renderContent = () => {
+    switch (selectedTab) {
+      case 'quiz':
+        return (
+          <ScrollView style={styles.contentContainer} showsVerticalScrollIndicator={false}>
+            <Text style={styles.sectionTitle}>Practice Quizzes</Text>
+            <View style={styles.listContainer}>
+                {mockQuizzes.map(quiz => (
+                    <QuizCard key={quiz.id} quiz={quiz} onStart={handleStartQuiz} />
+                ))}
+            </View>
+          </ScrollView>
+        );
+      case 'courses':
+        return (
+          <ScrollView style={styles.contentContainer} showsVerticalScrollIndicator={false}>
+            <Text style={styles.sectionTitle}>Recommended Courses</Text>
+            <View style={styles.listContainer}>
+                {mockCourses.map(course => (
+                    <CourseCard key={course.id} course={course} />
+                ))}
+            </View>
+          </ScrollView>
+        );
+      case 'timetable':
+      default:
+        return (
+          <>
+            <View style={styles.dayTabs}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{paddingHorizontal: SPACING.sm}}>
+                {daysOfWeek.map((day) => (
+                  <DayTab key={day} day={day} isSelected={selectedDay === day} onPress={() => setSelectedDay(day)} hasClasses={schedule[day] && schedule[day].length > 0} />
+                ))}
+              </ScrollView>
+            </View>
+
+            <ScrollView style={styles.scheduleContainer} showsVerticalScrollIndicator={false}>
+              {loading ? (
+                <View style={styles.loadingContainer}><ActivityIndicator size="large" color={COLORS.primary} /><Text style={styles.loadingText}>Loading your schedule...</Text></View>
+              ) : (
+                <View style={styles.scheduleContent}>
+                  {schedule[selectedDay] && schedule[selectedDay].length > 0 ? (
+                    <>
+                      <View style={styles.dayHeader}><Text style={styles.dayTitle}>{selectedDay}</Text><Text style={styles.classCount}>{schedule[selectedDay].length} {schedule[selectedDay].length === 1 ? 'class' : 'classes'}</Text></View>
+                      <View style={styles.timeSlots}>
+                        {schedule[selectedDay].map((item, index) => (
+                          <TimeSlotCard key={index} time={item.time} subject={item.subject} room={item.room} isActive={selectedDay === getCurrentDay() && isActiveClass(item.time)} />
+                        ))}
+                      </View>
+                    </>
+                  ) : (
+                    <Card style={styles.emptyStateCard}>
+                      <View style={styles.emptyState}>
+                        <Ionicons name="calendar-outline" size={64} color={COLORS.textTertiary} />
+                        <Text style={styles.emptyStateTitle}>No Classes Yet</Text>
+                        <Text style={styles.emptyStateText}>Tap the camera to scan your schedule.</Text>
+                      </View>
+                    </Card>
+                  )}
+                </View>
+              )}
+            </ScrollView>
+          </>
+        );
+    }
   };
 
   return (
@@ -296,68 +435,86 @@ export default function StudyScreen() {
       <LinearGradient colors={COLORS.primaryGradient} style={styles.headerGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
         <View style={styles.header}>
           <View>
-            <Text style={styles.headerTitle}>My Timetable</Text>
-            <Text style={styles.headerSubtitle}>Stay organized with your schedule</Text>
+            <Text style={styles.headerTitle}>Study Hub</Text>
+            <Text style={styles.headerSubtitle}>Plan, practice, and learn</Text>
           </View>
           <TouchableOpacity style={styles.scanButton} onPress={handleScanTimetable} disabled={loading}>
             {loading ? <ActivityIndicator color={COLORS.primary} /> : <Ionicons name="camera-outline" size={24} color={COLORS.primary} />}
           </TouchableOpacity>
         </View>
       </LinearGradient>
-
-      <View style={styles.dayTabs}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{paddingHorizontal: SPACING.sm}}>
-          {daysOfWeek.map((day) => (
-            <DayTab key={day} day={day} isSelected={selectedDay === day} onPress={() => setSelectedDay(day)} hasClasses={schedule[day] && schedule[day].length > 0} />
-          ))}
-        </ScrollView>
+      
+      {/* --- Main Tabs --- */}
+      <View style={styles.mainTabsContainer}>
+        <TabButton tab="timetable" title="Timetable" icon="calendar-outline" />
+        <TabButton tab="quiz" title="Quizzes" icon="clipboard-outline" />
+        <TabButton tab="courses" title="Courses" icon="book-outline" />
       </View>
 
-      <ScrollView style={styles.scheduleContainer} showsVerticalScrollIndicator={false}>
-        {loading ? (
-          <View style={styles.loadingContainer}><ActivityIndicator size="large" color={COLORS.primary} /><Text style={styles.loadingText}>Loading your schedule...</Text></View>
-        ) : (
-          <View style={styles.scheduleContent}>
-            {schedule[selectedDay] && schedule[selectedDay].length > 0 ? (
-              <>
-                <View style={styles.dayHeader}><Text style={styles.dayTitle}>{selectedDay}</Text><Text style={styles.classCount}>{schedule[selectedDay].length} {schedule[selectedDay].length === 1 ? 'class' : 'classes'}</Text></View>
-                <View style={styles.timeSlots}>
-                  {schedule[selectedDay].map((item, index) => (
-                    <TimeSlotCard key={index} time={item.time} subject={item.subject} room={item.room} isActive={selectedDay === getCurrentDay() && isActiveClass(item.time)} />
-                  ))}
-                </View>
-              </>
-            ) : (
-              <Card style={styles.emptyStateCard}>
-                <View style={styles.emptyState}>
-                  <Ionicons name="calendar-outline" size={64} color={COLORS.textTertiary} />
-                  <Text style={styles.emptyStateTitle}>No Classes Yet</Text>
-                  <Text style={styles.emptyStateText}>Tap the camera to scan your schedule.</Text>
-                </View>
-              </Card>
-            )}
-          </View>
-        )}
-      </ScrollView>
+      {renderContent()}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.background },
-  headerGradient: { paddingBottom: SPACING.lg, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
+  headerGradient: { paddingBottom: SPACING.xxl, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING.lg, paddingTop: Platform.OS === 'android' ? SPACING.xl : SPACING.lg },
   headerTitle: { ...TYPOGRAPHY.h2, color: COLORS.surface, fontWeight: '700' },
   headerSubtitle: { ...TYPOGRAPHY.body2, color: COLORS.surface, opacity: 0.9, marginTop: 4 },
   scanButton: { width: 48, height: 48, borderRadius: 24, backgroundColor: COLORS.surface, justifyContent: 'center', alignItems: 'center', ...SHADOWS.medium },
-  dayTabs: { backgroundColor: COLORS.surface, paddingVertical: SPACING.md, marginTop: -SPACING.md, marginHorizontal: SPACING.md, borderRadius: 20, ...SHADOWS.small },
+  mainTabsContainer: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.surface,
+    marginHorizontal: SPACING.lg,
+    borderRadius: 16,
+    padding: SPACING.xs,
+    ...SHADOWS.medium,
+    marginTop: -SPACING.xl,
+    zIndex: 10,
+  },
+  mainTabButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SPACING.md,
+    borderRadius: 12,
+    gap: SPACING.xs,
+  },
+  activeTabButton: {
+    backgroundColor: `${COLORS.primary}1A`,
+  },
+  mainTabText: {
+    ...TYPOGRAPHY.body2,
+    color: COLORS.textTertiary,
+    fontWeight: '600',
+  },
+  activeTabText: {
+    color: COLORS.primary,
+  },
+  dayTabs: { backgroundColor: COLORS.surface, paddingVertical: SPACING.md, marginTop: SPACING.lg, marginHorizontal: SPACING.md, borderRadius: 20, ...SHADOWS.small },
   dayTab: { paddingHorizontal: SPACING.lg, paddingVertical: SPACING.sm, marginHorizontal: SPACING.xs, borderRadius: 20, alignItems: 'center', minWidth: 60 },
   selectedDayTab: { backgroundColor: COLORS.primary },
   dayTabText: { ...TYPOGRAPHY.body2, color: COLORS.textSecondary, fontWeight: '600' },
   selectedDayTabText: { color: COLORS.surface },
   dayIndicator: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: COLORS.primary, marginTop: 4 },
+  contentContainer: {
+    flex: 1,
+    padding: SPACING.lg,
+    paddingTop: SPACING.md,
+  },
+  listContainer: {
+    gap: SPACING.md,
+  },
+  sectionTitle: {
+    ...TYPOGRAPHY.h3,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.lg,
+    paddingHorizontal: SPACING.sm,
+  },
   scheduleContainer: { flex: 1 },
-  scheduleContent: { padding: SPACING.lg },
+  scheduleContent: { padding: SPACING.lg, paddingTop: 0 },
   dayHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.lg },
   dayTitle: { ...TYPOGRAPHY.h3, color: COLORS.textPrimary },
   classCount: { ...TYPOGRAPHY.body2, color: COLORS.textTertiary },
@@ -400,4 +557,77 @@ const styles = StyleSheet.create({
   cancelButton: { backgroundColor: COLORS.borderLight },
   modalButtonText: { ...TYPOGRAPHY.body1, color: COLORS.surface, fontWeight: '700' },
   cancelButtonText: { color: COLORS.textSecondary },
+  quizCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: SPACING.md,
+    gap: SPACING.md,
+  },
+  quizIconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 12,
+    backgroundColor: `${COLORS.primary}1A`,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  quizDetails: {
+    flex: 1,
+  },
+  quizTitle: {
+    ...TYPOGRAPHY.h4,
+    color: COLORS.textPrimary,
+  },
+  quizSubject: {
+    ...TYPOGRAPHY.body2,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.xs,
+  },
+  quizMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  quizMetaText: {
+    ...TYPOGRAPHY.caption,
+    color: COLORS.textTertiary,
+  },
+  startQuizButton: {
+    padding: SPACING.sm,
+  },
+  courseCard: {
+    padding: 0,
+    overflow: 'hidden',
+  },
+  courseImage: {
+    width: '100%',
+    height: 150,
+  },
+  courseInfo: {
+    padding: SPACING.md,
+  },
+  courseTitle: {
+    ...TYPOGRAPHY.h4,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.xs,
+  },
+  courseInstructor: {
+    ...TYPOGRAPHY.body2,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.md,
+  },
+  courseMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.lg,
+  },
+  courseMetaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  courseMetaText: {
+    ...TYPOGRAPHY.caption,
+    color: COLORS.textTertiary,
+  },
 });

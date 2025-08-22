@@ -13,10 +13,11 @@ import LoginScreen from './screens/LoginScreen';
 import SignupScreen from './screens/SignupScreen';
 import HomeScreen from './screens/HomeScreen';
 import StudyScreen from './screens/StudyScreen';
-// The AttendanceScreen import is no longer needed here
 import CommunityScreen from './screens/CommunityScreen';
 import CareerScreen from './screens/CareerScreen';
 import ProfileScreen from './screens/ProfileScreen';
+import QuizScreen from './screens/QuizScreen'; // ✨ NEW
+import QuizResultScreen from './screens/QuizResultScreen'; // ✨ NEW
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -47,7 +48,6 @@ function MainAppTabs() {
     >
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Study" component={StudyScreen} />
-      {/* The Attendance screen tab has been removed */}
       <Tab.Screen name="Community" component={CommunityScreen} />
       <Tab.Screen name="Career" component={CareerScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
@@ -79,7 +79,12 @@ export default function App() {
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {user ? (
-          <Stack.Screen name="MainApp" component={MainAppTabs} />
+          <>
+            <Stack.Screen name="MainApp" component={MainAppTabs} />
+            {/* ✨ ADD QUIZ SCREENS TO THE MAIN STACK ✨ */}
+            <Stack.Screen name="Quiz" component={QuizScreen} />
+            <Stack.Screen name="QuizResult" component={QuizResultScreen} />
+          </>
         ) : (
           <>
             <Stack.Screen name="Login" component={LoginScreen} />
