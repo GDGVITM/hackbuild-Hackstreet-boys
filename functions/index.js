@@ -12,6 +12,87 @@ setGlobalOptions({region: "asia-northeast1"});
 
 admin.initializeApp();
 
+// --- ADD THIS NEW FUNCTION ---
+
+exports.getCareerGuidance = onCall(async (request) => {
+  // 1. Check for authentication
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "You must be logged in.");
+  }
+
+  const userSkills = request.data.skills;
+  if (!userSkills) {
+    throw new HttpsError("invalid-argument", "The function must be called with a 'skills' argument.");
+  }
+
+  // 2. Find relevant jobs using the JSearch API
+  const jobsOptions = {
+    method: 'GET',
+    url: 'https://jsearch.p.rapidapi.com/search',
+    params: {
+      query: `Software Developer with ${userSkills} in India`,
+      num_pages: '1'
+    },
+    headers: {
+      'X-RapidAPI-Key': process.env.RAPIDAPI_KEY,
+      'X-RapidAPI-Host': 'jsearch.p.rapidapi.com'
+    }
+  };
+
+  let jobDescriptions = '';
+  try {
+    const response = await axios.request(jobsOptions);
+    // Combine the first 5 job descriptions into one text block
+    jobDescriptions = response.data.data.slice(0, 5).map(job => job.job_description).join("\n\n---\n\n");
+  } catch (error) {
+    console.error("Error fetching jobs from JSearch API:", error);
+    throw new HttpsError("internal", "Failed to fetch job data.");
+  }
+
+  // 3. Analyze the data with the Gemini API
+  const geminiApiKey = process.env.GEMINI_KEY;
+  const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${geminiApiKey}`;
+
+  const prompt = `
+    Based on a user with the skills "${userSkills}" and the following real job descriptions, provide career guidance.
+    
+    Job Descriptions:
+    ---
+    ${jobDescriptions}
+    ---
+
+    Respond ONLY in JSON format with the following structure: 
+    {
+      "strongest_skills": ["skill1", "skill2"],
+      "skill_gaps": ["skill_A", "skill_B"],
+      "suggested_roles": ["role1", "role2"],
+      "project_ideas": [
+        {"title": "Project Title 1", "description": "A brief description."},
+        {"title": "Project Title 2", "description": "A brief description."}
+      ]
+    }
+    
+    - "strongest_skills": Identify the top 3-5 skills the user has that are most mentioned in the jobs.
+    - "skill_gaps": Identify the top 3 skills frequently required by the jobs that the user is missing.
+    - "suggested_roles": Suggest 2-3 specific job titles the user should search for.
+    - "project_ideas": Suggest 2 creative but achievable project ideas the user could build to fill their skill gaps.
+  `;
+
+  try {
+    const response = await axios.post(geminiApiUrl, {
+      contents: [{ parts: [{ text: prompt }] }],
+    });
+    
+    const guidanceJson = response.data.candidates[0].content.parts[0].text;
+    // The line below is where the error likely was. It's now fixed.
+    return JSON.parse(guidanceJson); 
+  } catch (error) {
+    console.error("Error calling Gemini API:", error.response?.data || error.message);
+    throw new HttpsError("internal", "Failed to get AI guidance.");
+  }
+});
+
+
 // V2 HTTPS Callable function
 exports.generateResumePDF = onCall(async (request) => {
   if (!request.auth) {

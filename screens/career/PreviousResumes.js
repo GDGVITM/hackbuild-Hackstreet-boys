@@ -40,16 +40,29 @@ export default function PreviousResumes({ navigation }) {
     );
   };
 
+  // This function gets the skills and navigates to the GuidanceScreen
+  const handleGetGuidance = (item) => {
+    const skills = item.resumeData?.skills?.technical;
+    if (skills && skills.trim() !== '') {
+      navigation.navigate('GuidanceScreen', { skills });
+    } else {
+      Alert.alert("No Skills Found", "Please edit this resume and add some technical skills to get AI guidance.");
+    }
+  };
+
   const renderItem = ({ item }) => (
     <View style={styles.resumeItem}>
       <View style={{ flex: 1 }}>
-        {/* --- UPDATED: Display the new resumeTitle --- */}
         <Text style={styles.resumeName} numberOfLines={1}>{item.resumeTitle || 'Untitled Resume'}</Text>
         <Text style={styles.resumeDate}>
-          Last saved: {item.createdAt?.toDate().toLocaleDateString()}
+          {item.createdAt ? `Last saved: ${item.createdAt.toDate().toLocaleDateString()}` : ''}
         </Text>
       </View>
       <View style={styles.buttonContainer}>
+        {/* --- THIS IS THE NEW BUTTON --- */}
+        <TouchableOpacity style={styles.iconButton} onPress={() => handleGetGuidance(item)}>
+          <Ionicons name="sparkles-outline" size={24} color={COLORS.warning} />
+        </TouchableOpacity>
         <TouchableOpacity style={styles.iconButton} onPress={() => handleEdit(item.id)}>
           <Ionicons name="create-outline" size={24} color={COLORS.primary} />
         </TouchableOpacity>

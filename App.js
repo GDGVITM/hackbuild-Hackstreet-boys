@@ -17,7 +17,8 @@ import CommunityScreen from './screens/CommunityScreen';
 import CareerScreen from './screens/career/CareerScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import ResumeBuilder from './screens/career/ResumeBuilder';
-import PreviousResumes from './screens/career/PreviousResumes'
+import PreviousResumes from './screens/career/PreviousResumes';
+import GuidanceScreen from './screens/career/GuidanceScreen';
 
 // --- ✨ IMPORT THE MISSING QUIZ SCREENS ✨ ---
 import QuizScreen from './screens/QuizScreen';
@@ -39,6 +40,7 @@ function CareerStackScreen() {
       <CareerStack.Screen name="CareerHub" component={CareerScreen} />
       { <CareerStack.Screen name="ResumeBuilder" component={ResumeBuilder} /> }
       { <CareerStack.Screen name="PreviousResumes" component={PreviousResumes} /> }
+      <CareerStack.Screen name="GuidanceScreen" component={GuidanceScreen} />
     </CareerStack.Navigator>
   );
 }

@@ -2,9 +2,10 @@
 import { initializeApp, getApp, getApps } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
-import { getFunctions } from 'firebase/functions'; // Ensure this is imported
+import { getFunctions } from 'firebase/functions';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
+// Make sure to import getAuth as well
+import { getAuth, initializeAuth, getReactNativePersistence } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: "AIzaSyCemw32GRAsSWa5OaPlUPLP-9CJuQmzCys",
@@ -16,14 +17,26 @@ const firebaseConfig = {
   measurementId: "G-8W1RTTEC2R"
 };
 
-// This pattern ensures Firebase is only initialized once.
+// This part is correct
 let app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-const auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(AsyncStorage),
-});
+// --- THIS IS THE FIX ---
+// Declare auth variable
+let auth;
+
+try {
+  // Attempt to get the existing Auth instance
+  auth = getAuth(app);
+} catch (error) {
+  // If it fails, initialize a new instance
+  auth = initializeAuth(app, {
+    persistence: getReactNativePersistence(AsyncStorage),
+  });
+}
+// --------------------
+
 const db = getFirestore(app);
 const storage = getStorage(app);
-const functions = getFunctions(app); // Initialize and export functions
+const functions = getFunctions(app, 'asia-northeast1');
 
 export { auth, db, storage, functions };
