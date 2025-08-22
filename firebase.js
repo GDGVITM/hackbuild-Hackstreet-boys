@@ -1,12 +1,11 @@
 // firebase.js
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApp, getApps } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
+import { getFunctions } from 'firebase/functions'; // Ensure this is imported
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
-import { getFunctions } from 'firebase/functions'; // Added this line
 
-// Your Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyCemw32GRAsSWa5OaPlUPLP-9CJuQmzCys",
   authDomain: "edumitra10-51096.firebaseapp.com",
@@ -17,19 +16,14 @@ const firebaseConfig = {
   measurementId: "G-8W1RTTEC2R"
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+// This pattern ensures Firebase is only initialized once.
+let app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Initialize Auth with AsyncStorage persistence
-export const auth = initializeAuth(app, {
+const auth = initializeAuth(app, {
   persistence: getReactNativePersistence(AsyncStorage),
 });
+const db = getFirestore(app);
+const storage = getStorage(app);
+const functions = getFunctions(app); // Initialize and export functions
 
-// Firestore
-export const db = getFirestore(app);
-
-// Storage
-export const storage = getStorage(app);
-
-// Functions
-export const functions = getFunctions(app); // Added this line
+export { auth, db, storage, functions };
