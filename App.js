@@ -16,8 +16,6 @@ import StudyScreen from './screens/StudyScreen';
 import CommunityScreen from './screens/CommunityScreen';
 import CareerScreen from './screens/career/CareerScreen'; // Corrected Path
 import ProfileScreen from './screens/ProfileScreen';
-import ResumeBuilder from './screens/career/ResumeBuilder'; // --- NEW: Import ResumeBuilder ---
-import PreviousResumes from './screens/career/PreviousResumes';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -35,7 +33,6 @@ function CareerStackScreen() {
   );
 }
 
-// This is the main part of the app after a user logs in
 function MainAppTabs() {
   return (
     <Tab.Navigator
@@ -52,6 +49,7 @@ function MainAppTabs() {
         },
         tabBarActiveTintColor: '#007AFF',
         tabBarInactiveTintColor: 'gray',
+        headerShown: false, // Hides the header for a cleaner look
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
@@ -88,6 +86,7 @@ export default function App() {
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {user ? (
+          // If the user is logged in, show the main app with tabs
           <Stack.Screen name="MainApp" component={MainAppTabs} />
         ) : (
           <>
