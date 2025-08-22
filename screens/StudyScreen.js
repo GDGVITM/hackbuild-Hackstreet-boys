@@ -13,7 +13,7 @@ import {
   TextInput,
   Image,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native'; // ✨ IMPORT useNavigation
+import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -97,7 +97,7 @@ const CourseCard = ({ course }) => (
 
 
 export default function StudyScreen() {
-  const navigation = useNavigation(); // ✨ INITIALIZE navigation
+  const navigation = useNavigation();
   const [schedule, setSchedule] = useState({});
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState(getCurrentDay());
@@ -312,7 +312,6 @@ export default function StudyScreen() {
     return startTime <= currentTime && currentTime < endTime;
   };
   
-  // --- ✨ UPDATED Handler Function ---
   const handleStartQuiz = (quiz) => {
     navigation.navigate('Quiz', { quiz: quiz });
   };
@@ -413,13 +412,17 @@ export default function StudyScreen() {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Review & Edit Timetable</Text>
             <Text style={styles.modalSubtitle}>Correct any errors in the text below before saving.</Text>
-            <TextInput
-              style={styles.textInput}
-              multiline={true}
-              value={editableTimetableText}
-              onChangeText={setEditableTimetableText}
-              autoCapitalize="words"
-            />
+            
+            <ScrollView style={{ flex: 1 }}>
+                <TextInput
+                  style={styles.textInput}
+                  multiline={true}
+                  value={editableTimetableText}
+                  onChangeText={setEditableTimetableText}
+                  autoCapitalize="words"
+                />
+            </ScrollView>
+            
             <View style={styles.modalButtonContainer}>
               <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={handleCancelConfirmation}>
                 <Text style={[styles.modalButtonText, styles.cancelButtonText]}>Cancel</Text>
@@ -535,8 +538,18 @@ const styles = StyleSheet.create({
   emptyState: { alignItems: 'center', paddingVertical: SPACING.xl, paddingHorizontal: SPACING.lg },
   emptyStateTitle: { ...TYPOGRAPHY.h3, color: COLORS.textPrimary, marginTop: SPACING.lg, marginBottom: SPACING.sm },
   emptyStateText: { ...TYPOGRAPHY.body1, color: COLORS.textTertiary, textAlign: 'center', lineHeight: 24 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.6)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { width: '90%', maxHeight: '80%', backgroundColor: COLORS.surface, borderRadius: 20, padding: SPACING.lg, ...SHADOWS.large },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.6)', justifyContent: 'center', alignItems: 'center', padding: SPACING.lg },
+  modalContent: {
+    width: '100%',
+    maxHeight: '80%',
+    backgroundColor: COLORS.surface,
+    borderRadius: 20,
+    padding: SPACING.lg,
+    ...SHADOWS.large,
+    flexGrow: 1,
+    display: 'flex', 
+    flexDirection: 'column',
+  },
   modalTitle: { ...TYPOGRAPHY.h3, color: COLORS.textPrimary, textAlign: 'center', marginBottom: SPACING.sm },
   modalSubtitle: { ...TYPOGRAPHY.body2, color: COLORS.textTertiary, textAlign: 'center', marginBottom: SPACING.lg },
   textInput: {
@@ -547,11 +560,15 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     minHeight: 200,
     textAlignVertical: 'top',
-    marginBottom: SPACING.lg,
     borderWidth: 1,
     borderColor: COLORS.borderLight,
   },
-  modalButtonContainer: { flexDirection: 'row', justifyContent: 'space-between', gap: SPACING.md },
+  modalButtonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: SPACING.md,
+    marginTop: SPACING.lg,
+  },
   modalButton: { flex: 1, paddingVertical: SPACING.md, borderRadius: 12, alignItems: 'center' },
   confirmButton: { backgroundColor: COLORS.primary },
   cancelButton: { backgroundColor: COLORS.borderLight },
