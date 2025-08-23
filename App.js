@@ -14,32 +14,30 @@ import SignupScreen from './screens/SignupScreen';
 import HomeScreen from './screens/HomeScreen';
 import StudyScreen from './screens/StudyScreen';
 import CommunityScreen from './screens/CommunityScreen';
-import CareerScreen from './screens/career/CareerScreen';
+import CareerScreen from './screens/CareerScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import ResumeBuilder from './screens/career/ResumeBuilder';
 import PreviousResumes from './screens/career/PreviousResumes';
+// --- ✨ IMPORT THE NEW GUIDANCE SCREEN ✨ ---
 import GuidanceScreen from './screens/career/GuidanceScreen';
 
-// --- ✨ IMPORT THE MISSING QUIZ SCREENS ✨ ---
+// Import Quiz Screens
 import QuizScreen from './screens/QuizScreen';
 import QuizResultScreen from './screens/QuizResultScreen';
-
-// You might need to import these for the Career stack if they are in separate files
-// import ResumeBuilder from './screens/career/ResumeBuilder';
-// import PreviousResumes from './screens/career/PreviousResumes';
 
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 const CareerStack = createNativeStackNavigator();
 
-// This is your new Career navigation stack (unchanged)
+// This is your Career navigation stack, now including the GuidanceScreen
 function CareerStackScreen() {
   return (
     <CareerStack.Navigator screenOptions={{ headerShown: false }}>
       <CareerStack.Screen name="CareerHub" component={CareerScreen} />
-      { <CareerStack.Screen name="ResumeBuilder" component={ResumeBuilder} /> }
-      { <CareerStack.Screen name="PreviousResumes" component={PreviousResumes} /> }
+      <CareerStack.Screen name="ResumeBuilder" component={ResumeBuilder} />
+      <CareerStack.Screen name="PreviousResumes" component={PreviousResumes} />
+      {/* --- ✨ ADD THE GUIDANCE SCREEN TO THE STACK ✨ --- */}
       <CareerStack.Screen name="GuidanceScreen" component={GuidanceScreen} />
     </CareerStack.Navigator>
   );
@@ -100,7 +98,7 @@ export default function App() {
             {/* If the user is logged in, show the main app with tabs */}
             <Stack.Screen name="MainApp" component={MainAppTabs} />
 
-            {/* --- ✨ ADD THE QUIZ SCREENS BACK TO THE NAVIGATOR ✨ --- */}
+            {/* Other top-level screens like Quiz */}
             <Stack.Screen name="Quiz" component={QuizScreen} />
             <Stack.Screen name="QuizResult" component={QuizResultScreen} />
           </>

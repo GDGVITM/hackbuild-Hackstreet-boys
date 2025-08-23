@@ -1,3 +1,4 @@
+// screens/CareerScreen.js
 import React, { useState } from 'react';
 import {
   View,
@@ -8,15 +9,18 @@ import {
   TouchableOpacity,
   Dimensions,
   Linking,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { COLORS, TYPOGRAPHY, SPACING, SHADOWS } from '../theme';
+import { useNavigation } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 
+// JobCard Component
 const JobCard = ({ job, onApply }) => (
   <Card style={styles.jobCard}>
     <View style={styles.jobHeader}>
@@ -55,6 +59,7 @@ const JobCard = ({ job, onApply }) => (
   </Card>
 );
 
+// ResourceCard Component
 const ResourceCard = ({ resource, onPress }) => (
   <TouchableOpacity style={styles.resourceCard} onPress={onPress} activeOpacity={0.8}>
     <LinearGradient
@@ -72,6 +77,7 @@ const ResourceCard = ({ resource, onPress }) => (
   </TouchableOpacity>
 );
 
+// EventCard Component
 const EventCard = ({ event }) => (
   <Card style={styles.eventCard}>
     <View style={styles.eventDate}>
@@ -95,39 +101,18 @@ const EventCard = ({ event }) => (
   </Card>
 );
 
+
 export default function CareerScreen() {
   const [selectedTab, setSelectedTab] = useState('jobs'); // 'jobs', 'resources', 'events'
+  const navigation = useNavigation();
 
   const mockJobs = [
-    {
-      id: 1,
-      title: 'Software Engineer Intern',
-      company: 'Google',
-      location: 'Remote',
-      salary: '$5000/month',
-      type: 'Internship',
-      skills: ['Python', 'JavaScript', 'React'],
-    },
-    {
-      id: 2,
-      title: 'Data Scientist',
-      company: 'Microsoft',
-      location: 'Seattle, WA',
-      salary: '$8000/month',
-      type: 'Full-time',
-      skills: ['Machine Learning', 'Python', 'SQL'],
-    },
-    {
-      id: 3,
-      title: 'UX Designer',
-      company: 'Apple',
-      location: 'Cupertino, CA',
-      salary: '$6000/month',
-      type: 'Contract',
-      skills: ['Figma', 'User Research', 'Prototyping'],
-    },
+    { id: 1, title: 'Software Engineer Intern', company: 'Google', location: 'Remote', salary: '$5000/month', type: 'Internship', skills: ['Python', 'JavaScript', 'React'] },
+    { id: 2, title: 'Data Scientist', company: 'Microsoft', location: 'Seattle, WA', salary: '$8000/month', type: 'Full-time', skills: ['Machine Learning', 'Python', 'SQL'] },
+    { id: 3, title: 'UX Designer', company: 'Apple', location: 'Cupertino, CA', salary: '$6000/month', type: 'Contract', skills: ['Figma', 'User Research', 'Prototyping'] },
   ];
 
+  // --- INTEGRATED RESOURCES LIST ---
   const resources = [
     {
       id: 1,
@@ -135,70 +120,60 @@ export default function CareerScreen() {
       description: 'Create professional resumes',
       icon: 'document-text-outline',
       gradient: [COLORS.primary, COLORS.secondary],
-      url: 'https://resume.io',
+      screen: 'ResumeBuilder', // Navigates internally
     },
     {
       id: 2,
+      title: 'My Resumes',
+      description: 'View & edit saved resumes',
+      icon: 'folder-open-outline',
+      gradient: ['#6D5BBA', '#8D6E63'],
+      screen: 'PreviousResumes', // Navigates internally
+    },
+    {
+      id: 3,
       title: 'Interview Prep',
       description: 'Practice coding interviews',
       icon: 'chatbubbles-outline',
       gradient: [COLORS.success, '#30D158'],
-      url: 'https://leetcode.com',
+      url: 'https://leetcode.com', // Opens external link
     },
     {
-      id: 3,
+      id: 4,
       title: 'Skill Assessment',
       description: 'Test your technical skills',
       icon: 'trophy-outline',
       gradient: [COLORS.warning, '#FF9500'],
-      url: 'https://hackerrank.com',
+      url: 'https://hackerrank.com', // Opens external link
     },
     {
-      id: 4,
-      title: 'Career Guidance',
+      id: 5,
+      title: 'AI Career Guidance',
       description: 'Get personalized advice',
       icon: 'compass-outline',
       gradient: [COLORS.error, '#FF3B30'],
-      url: 'https://glassdoor.com',
+      screen: 'GuidanceScreen', // Navigates internally
     },
   ];
 
   const events = [
-    {
-      id: 1,
-      title: 'Tech Career Fair',
-      description: 'Meet recruiters from top tech companies',
-      month: 'AUG',
-      day: '25',
-      time: '10:00 AM',
-      attendees: 150,
-    },
-    {
-      id: 2,
-      title: 'Resume Workshop',
-      description: 'Learn how to create compelling resumes',
-      month: 'AUG',
-      day: '28',
-      time: '2:00 PM',
-      attendees: 45,
-    },
-    {
-      id: 3,
-      title: 'Mock Interview Session',
-      description: 'Practice interviews with industry professionals',
-      month: 'SEP',
-      day: '02',
-      time: '11:00 AM',
-      attendees: 30,
-    },
+    { id: 1, title: 'Tech Career Fair', description: 'Meet recruiters from top tech companies', month: 'AUG', day: '25', time: '10:00 AM', attendees: 150 },
+    { id: 2, title: 'Resume Workshop', description: 'Learn how to create compelling resumes', month: 'AUG', day: '28', time: '2:00 PM', attendees: 45 },
   ];
 
   const handleApplyJob = (job) => {
     Alert.alert('Apply for Job', `Would you like to apply for ${job.title} at ${job.company}?`);
   };
 
+  // --- UPDATED NAVIGATION HANDLER ---
   const handleResourcePress = (resource) => {
-    Linking.openURL(resource.url);
+    if (resource.screen) {
+      // Handle internal navigation
+      navigation.navigate(resource.screen);
+    } else if (resource.url) {
+      // Handle external links
+      Linking.openURL(resource.url).catch(err => Alert.alert("Couldn't open URL", err.message));
+    }
   };
 
   const TabButton = ({ tab, title, icon, count }) => (
@@ -207,13 +182,13 @@ export default function CareerScreen() {
       onPress={() => setSelectedTab(tab)}
       activeOpacity={0.8}
     >
-      <Ionicons 
-        name={icon} 
-        size={20} 
-        color={selectedTab === tab ? COLORS.primary : COLORS.textTertiary} 
+      <Ionicons
+        name={icon}
+        size={20}
+        color={selectedTab === tab ? COLORS.primary : COLORS.textTertiary}
       />
       <Text style={[styles.tabText, selectedTab === tab && styles.activeTabText]}>{title}</Text>
-      {count && (
+      {count !== undefined && (
         <View style={styles.tabBadge}>
           <Text style={styles.tabBadgeText}>{count}</Text>
         </View>
@@ -221,6 +196,7 @@ export default function CareerScreen() {
     </TouchableOpacity>
   );
 
+  // Unchanged renderContent function
   const renderContent = () => {
     switch (selectedTab) {
       case 'resources':
@@ -229,16 +205,16 @@ export default function CareerScreen() {
             <Text style={styles.sectionTitle}>Career Resources</Text>
             <View style={styles.resourcesGrid}>
               {resources.map((resource) => (
-                <ResourceCard 
-                  key={resource.id} 
-                  resource={resource} 
+                <ResourceCard
+                  key={resource.id}
+                  resource={resource}
                   onPress={() => handleResourcePress(resource)}
                 />
               ))}
             </View>
           </ScrollView>
         );
-      
+
       case 'events':
         return (
           <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
@@ -250,8 +226,8 @@ export default function CareerScreen() {
             </View>
           </ScrollView>
         );
-      
-      default:
+
+      default: // 'jobs' tab
         return (
           <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
             <View style={styles.jobsHeader}>
@@ -290,7 +266,7 @@ export default function CareerScreen() {
         </View>
       </LinearGradient>
 
-      {/* Stats */}
+      {/* Stats Card */}
       <Card style={styles.statsCard}>
         <View style={styles.statsContainer}>
           <View style={styles.statItem}>
@@ -323,6 +299,7 @@ export default function CareerScreen() {
   );
 }
 
+// All existing styles remain unchanged
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -533,13 +510,14 @@ const styles = StyleSheet.create({
   resourcesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: SPACING.md,
+    justifyContent: 'space-between',
   },
   resourceCard: {
-    width: (width - SPACING.lg * 3) / 2,
+    width: (width - SPACING.lg * 3) / 2, // Ensures two cards fit per row with spacing
     height: 140,
     borderRadius: 16,
     overflow: 'hidden',
+    marginBottom: SPACING.md,
   },
   resourceGradient: {
     flex: 1,
