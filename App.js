@@ -29,9 +29,6 @@ import QuizScreen from './screens/QuizScreen';
 import QuizResultScreen from './screens/QuizResultScreen';
 import DocumentsScreen from './screens/DocumentsScreen'; // This will now work after you rename the file
 
-import QuizScreen from './screens/QuizScreen';
-import QuizResultScreen from './screens/QuizResultScreen';
-
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
