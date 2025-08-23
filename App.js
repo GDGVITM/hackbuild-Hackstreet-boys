@@ -15,29 +15,36 @@ import SignupScreen from './screens/SignupScreen';
 import HomeScreen from './screens/HomeScreen';
 import StudyScreen from './screens/StudyScreen';
 import CommunityScreen from './screens/CommunityScreen';
-import CareerScreen from './screens/career/CareerScreen';
+import CareerScreen from './screens/CareerScreen';
 import ProfileScreen from './screens/ProfileScreen';
 
 // --- CAREER STACK SCREENS ---
 import ResumeBuilder from './screens/career/ResumeBuilder';
 import PreviousResumes from './screens/career/PreviousResumes';
+// --- ✨ IMPORT THE NEW GUIDANCE SCREEN ✨ ---
 import GuidanceScreen from './screens/career/GuidanceScreen';
 
-// --- OTHER NAVIGABLE SCREENS ---
+
 import QuizScreen from './screens/QuizScreen';
 import QuizResultScreen from './screens/QuizResultScreen';
 import DocumentsScreen from './screens/DocumentsScreen'; // This will now work after you rename the file
+
+import QuizScreen from './screens/QuizScreen';
+import QuizResultScreen from './screens/QuizResultScreen';
+
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 const CareerStack = createNativeStackNavigator();
 
+// This is your Career navigation stack, now including the GuidanceScreen
 function CareerStackScreen() {
   return (
     <CareerStack.Navigator screenOptions={{ headerShown: false }}>
       <CareerStack.Screen name="CareerHub" component={CareerScreen} />
       <CareerStack.Screen name="ResumeBuilder" component={ResumeBuilder} />
       <CareerStack.Screen name="PreviousResumes" component={PreviousResumes} />
+      {/* --- ✨ ADD THE GUIDANCE SCREEN TO THE STACK ✨ --- */}
       <CareerStack.Screen name="GuidanceScreen" component={GuidanceScreen} />
     </CareerStack.Navigator>
   );
@@ -96,6 +103,8 @@ export default function App() {
         {user ? (
           <>
             <Stack.Screen name="MainApp" component={MainAppTabs} />
+
+            {/* Other top-level screens like Quiz */}
             <Stack.Screen name="Quiz" component={QuizScreen} />
             <Stack.Screen name="QuizResult" component={QuizResultScreen} />
             <Stack.Screen name="Documents" component={DocumentsScreen} />
