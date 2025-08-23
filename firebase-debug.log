@@ -1,0 +1,43 @@
+[debug] [2025-08-22T20:12:17.165Z] ----------------------------------------------------------------------
+[debug] [2025-08-22T20:12:17.169Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\Pratham\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js functions:secrets:set RAPIDAPI_KEY
+[debug] [2025-08-22T20:12:17.169Z] CLI Version:   14.13.0
+[debug] [2025-08-22T20:12:17.169Z] Platform:      win32
+[debug] [2025-08-22T20:12:17.169Z] Node Version:  v22.14.0
+[debug] [2025-08-22T20:12:17.169Z] Time:          Sat Aug 23 2025 01:42:17 GMT+0530 (India Standard Time)
+[debug] [2025-08-22T20:12:17.170Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2025-08-22T20:12:17.372Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-08-22T20:12:17.372Z] > authorizing via signed-in user (prathampatil98195@gmail.com)
+[debug] [2025-08-22T20:12:17.373Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-08-22T20:12:17.374Z] > authorizing via signed-in user (prathampatil98195@gmail.com)
+[debug] [2025-08-22T20:12:17.374Z] [iam] checking project edumitra10-51096 for permissions ["firebase.projects.get","secretmanager.secrets.create","secretmanager.secrets.get","secretmanager.secrets.update","secretmanager.versions.add"]
+[debug] [2025-08-22T20:12:17.375Z] Checked if tokens are valid: true, expires at: 1755897014761
+[debug] [2025-08-22T20:12:17.375Z] Checked if tokens are valid: true, expires at: 1755897014761
+[debug] [2025-08-22T20:12:17.376Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/edumitra10-51096:testIamPermissions [none]
+[debug] [2025-08-22T20:12:17.376Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/edumitra10-51096:testIamPermissions x-goog-quota-user=projects/edumitra10-51096
+[debug] [2025-08-22T20:12:17.376Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/edumitra10-51096:testIamPermissions {"permissions":["firebase.projects.get","secretmanager.secrets.create","secretmanager.secrets.get","secretmanager.secrets.update","secretmanager.versions.add"]}
+[debug] [2025-08-22T20:12:18.853Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/edumitra10-51096:testIamPermissions 200
+[debug] [2025-08-22T20:12:18.853Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/edumitra10-51096:testIamPermissions {"permissions":["firebase.projects.get","secretmanager.secrets.create","secretmanager.secrets.get","secretmanager.secrets.update","secretmanager.versions.add"]}
+[debug] [2025-08-22T20:12:18.854Z] Checked if tokens are valid: true, expires at: 1755897014761
+[debug] [2025-08-22T20:12:18.854Z] Checked if tokens are valid: true, expires at: 1755897014761
+[debug] [2025-08-22T20:12:18.855Z] >>> [apiv2][query] GET https://cloudresourcemanager.googleapis.com/v1/projects/edumitra10-51096 [none]
+[debug] [2025-08-22T20:12:19.201Z] <<< [apiv2][status] GET https://cloudresourcemanager.googleapis.com/v1/projects/edumitra10-51096 200
+[debug] [2025-08-22T20:12:19.201Z] <<< [apiv2][body] GET https://cloudresourcemanager.googleapis.com/v1/projects/edumitra10-51096 {"projectNumber":"292391617601","projectId":"edumitra10-51096","lifecycleState":"ACTIVE","name":"EduMitra10","labels":{"firebase":"enabled","firebase-core":"disabled","generative-language":"enabled"},"createTime":"2025-08-21T09:17:13.838734Z"}
+[debug] [2025-08-22T20:12:19.202Z] Checked if tokens are valid: true, expires at: 1755897014761
+[debug] [2025-08-22T20:12:19.202Z] Checked if tokens are valid: true, expires at: 1755897014761
+[debug] [2025-08-22T20:12:19.203Z] >>> [apiv2][query] GET https://secretmanager.googleapis.com/v1/projects/edumitra10-51096/secrets/RAPIDAPI_KEY [none]
+[debug] [2025-08-22T20:12:19.632Z] <<< [apiv2][status] GET https://secretmanager.googleapis.com/v1/projects/edumitra10-51096/secrets/RAPIDAPI_KEY 200
+[debug] [2025-08-22T20:12:19.632Z] <<< [apiv2][body] GET https://secretmanager.googleapis.com/v1/projects/edumitra10-51096/secrets/RAPIDAPI_KEY {"name":"projects/292391617601/secrets/RAPIDAPI_KEY","replication":{"automatic":{}},"createTime":"2025-08-22T18:38:47.676900Z","labels":{"firebase-managed":"functions"},"etag":"\"163cf8844128b4\""}
+[debug] [2025-08-22T20:13:08.488Z] ExitPromptError: User force closed the prompt with SIGINT
+    at Interface.sigint (C:\Users\Pratham\AppData\Roaming\npm\node_modules\firebase-tools\node_modules\@inquirer\core\dist\commonjs\lib\create-prompt.js:101:37)
+    at Interface.emit (node:events:518:28)
+    at Interface.emit (node:domain:489:12)
+    at [_ttyWrite] [as _ttyWrite] (node:internal/readline/interface:1124:18)
+    at ReadStream.onkeypress (node:internal/readline/interface:263:20)
+    at ReadStream.emit (node:events:530:35)
+    at ReadStream.emit (node:domain:489:12)
+    at emitKeys (node:internal/readline/utils:370:14)
+    at emitKeys.next (<anonymous>)
+    at ReadStream.onData (node:internal/readline/emitKeypressEvents:64:36)
+[error] 
+[error] Error: An unexpected error has occurred.

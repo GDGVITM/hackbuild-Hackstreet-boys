@@ -17,7 +17,19 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { auth, db } from '../firebase';
-import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp } from 'firebase/firestore';
+// ✅ CHANGE 1: Imported new functions to manage user message counts
+import { 
+  collection, 
+  addDoc, 
+  onSnapshot, 
+  query, 
+  orderBy, 
+  serverTimestamp,
+  doc,
+  getDoc,
+  updateDoc,
+  increment,
+} from 'firebase/firestore';
 import { Card } from '../components/common/Card';
 import { COLORS, TYPOGRAPHY, SPACING, SHADOWS } from '../theme';
 
@@ -52,25 +64,26 @@ const MemberCard = ({ member, onPress }) => (
   </TouchableOpacity>
 );
 
-const MentorCard = ({ mentor, onContact }) => (
+// ✅ CHANGE: Replaced the MentorCard with a CourseCard component
+const CourseCard = ({ course }) => (
   <Card style={styles.mentorCard}>
     <View style={styles.mentorHeader}>
       <View style={styles.mentorIcon}>
-        <Ionicons name="person" size={24} color={COLORS.primary} />
+        <Ionicons name="school-outline" size={24} color={COLORS.primary} />
       </View>
       <View style={styles.mentorBadge}>
-        <Text style={styles.mentorBadgeText}>MENTOR</Text>
+        <Text style={styles.mentorBadgeText}>{course.provider.toUpperCase()}</Text>
       </View>
     </View>
-    <Text style={styles.mentorName}>{mentor.name}</Text>
-    <Text style={styles.mentorSubject}>{mentor.subject}</Text>
+    <Text style={styles.mentorName}>{course.title}</Text>
+    <Text style={styles.mentorSubject}>{course.category}</Text>
     <TouchableOpacity 
       style={styles.contactButton} 
-      onPress={() => onContact(mentor)}
+      onPress={() => Linking.openURL(course.url)}
       activeOpacity={0.8}
     >
-      <Ionicons name="mail-outline" size={16} color={COLORS.surface} />
-      <Text style={styles.contactButtonText}>Contact</Text>
+      <Ionicons name="open-outline" size={16} color={COLORS.surface} />
+      <Text style={styles.contactButtonText}>View Course</Text>
     </TouchableOpacity>
   </Card>
 );
@@ -94,13 +107,39 @@ export default function CommunityScreen() {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [communityMembers, setCommunityMembers] = useState([]);
-  const [activeTab, setActiveTab] = useState('chat'); // 'chat', 'members', 'mentors'
+  const [activeTab, setActiveTab] = useState('chat');
   const currentUser = auth.currentUser;
 
-  const mentors = [
-    { id: '1', name: 'Dr. Evelyn Reed', subject: 'Physics', email: 'e.reed@university.edu' },
-    { id: '2', name: 'Prof. Samuel Chen', subject: 'Mathematics', email: 's.chen@university.edu' },
-    { id: '3', name: 'Dr. Aisha Khan', subject: 'Computer Science', phone: '123-456-7890' },
+  // ✅ CHANGE: Replaced mentors data with real-world Coursera courses
+  const recommendedCourses = [
+    { 
+      id: '1', 
+      title: 'Google Data Analytics Professional Certificate', 
+      provider: 'Coursera',
+      category: 'Data Science',
+      url: 'https://www.coursera.org/professional-certificates/google-data-analytics' 
+    },
+    { 
+      id: '2', 
+      title: 'Python for Everybody Specialization', 
+      provider: 'Coursera',
+      category: 'Computer Science',
+      url: 'https://www.coursera.org/specializations/python' 
+    },
+    { 
+      id: '3', 
+      title: 'IBM Full Stack Software Developer Certificate', 
+      provider: 'Coursera',
+      category: 'Web Development',
+      url: 'https://www.coursera.org/professional-certificates/ibm-full-stack-cloud-developer'
+    },
+    {
+      id: '4',
+      title: 'Deep Learning Specialization',
+      provider: 'DeepLearning.AI',
+      category: 'Machine Learning',
+      url: 'https://www.coursera.org/specializations/deep-learning'
+    },
   ];
 
   useEffect(() => {
@@ -130,25 +169,57 @@ export default function CommunityScreen() {
     return () => unsubscribe();
   }, []);
 
+  // ✅ CHANGE 2: Updated function to check for daily message limit before sending
   const handleSendMessage = async () => {
     if (newMessage.trim() === '' || !currentUser) return;
+    
+    const userDocRef = doc(db, 'users', currentUser.uid);
+    const today = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
+
     try {
-      await addDoc(collection(db, 'groupChat'), {
-        text: newMessage,
-        senderName: currentUser.displayName || 'Anonymous',
-        senderId: currentUser.uid,
-        createdAt: serverTimestamp(),
-      });
-      setNewMessage('');
+        const userDocSnap = await getDoc(userDocRef);
+        if (!userDocSnap.exists()) {
+            Alert.alert("Error", "Could not find your user profile.");
+            return;
+        }
+
+        const userData = userDocSnap.data();
+        const messageStats = userData.dailyMessageStats || { count: 0, lastMessageDate: '' };
+
+        // Reset count if it's a new day
+        if (messageStats.lastMessageDate !== today) {
+            messageStats.count = 0;
+        }
+
+        // Check if user has reached the daily limit
+        if (messageStats.count >= 5) {
+            Alert.alert("Limit Reached", "You have reached your daily limit of 5 messages in the community chat.");
+            return;
+        }
+
+        // Proceed to send message
+        await addDoc(collection(db, 'groupChat'), {
+            text: newMessage,
+            senderName: currentUser.displayName || 'Anonymous',
+            senderId: currentUser.uid,
+            createdAt: serverTimestamp(),
+        });
+        
+        // Update the user's message count for today
+        await updateDoc(userDocRef, {
+          'dailyMessageStats.count': increment(1),
+          'dailyMessageStats.lastMessageDate': today,
+        });
+
+        setNewMessage('');
+
     } catch (error) {
-      Alert.alert("Error", "Message could not be sent.");
+        console.error("Error sending message:", error);
+        Alert.alert("Error", "Message could not be sent.");
     }
   };
 
-  const handleContact = (contact) => {
-    if (contact.email) Linking.openURL(`mailto:${contact.email}`);
-    else if (contact.phone) Linking.openURL(`tel:${contact.phone}`);
-  };
+  // ⛔️ REMOVED: handleContact function is no longer needed
 
   const TabButton = ({ tab, title, icon }) => (
     <TouchableOpacity
@@ -186,13 +257,14 @@ export default function CommunityScreen() {
           </ScrollView>
         );
       
-      case 'mentors':
+      // ✅ CHANGE: Updated tab from 'mentors' to 'courses' to show recommended courses
+      case 'courses':
         return (
           <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
-            <Text style={styles.sectionTitle}>Connect with Mentors</Text>
+            <Text style={styles.sectionTitle}>Recommended Courses</Text>
             <View style={styles.mentorsGrid}>
-              {mentors.map((mentor) => (
-                <MentorCard key={mentor.id} mentor={mentor} onContact={handleContact} />
+              {recommendedCourses.map((course) => (
+                <CourseCard key={course.id} course={course} />
               ))}
             </View>
           </ScrollView>
@@ -241,7 +313,6 @@ export default function CommunityScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* Header */}
       <LinearGradient
         colors={COLORS.primaryGradient}
         style={styles.headerGradient}
@@ -259,19 +330,20 @@ export default function CommunityScreen() {
         </View>
       </LinearGradient>
 
-      {/* Tabs */}
       <View style={styles.tabsContainer}>
         <TabButton tab="chat" title="Chat" icon="chatbubbles-outline" />
         <TabButton tab="members" title="Members" icon="people-outline" />
-        <TabButton tab="mentors" title="Mentors" icon="school-outline" />
+        {/* ✅ CHANGE: Updated tab from 'Mentors' to 'Courses' */}
+        <TabButton tab="courses" title="Courses" icon="school-outline" />
       </View>
 
-      {/* Content */}
       {renderTabContent()}
     </SafeAreaView>
   );
 }
 
+// NOTE: I've reused the existing 'mentor' styles for the new 'CourseCard' 
+// to maintain a consistent look and feel without adding redundant styles.
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,

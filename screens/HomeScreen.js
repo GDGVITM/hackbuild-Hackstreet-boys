@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, TouchableOpacity,
   Alert, TextInput, FlatList, Modal,
@@ -11,7 +11,7 @@ import { auth, db } from '../firebase';
 import { doc, onSnapshot, updateDoc, arrayUnion, arrayRemove, setDoc, getDoc } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const StatCard = ({ icon, label, value, color, onPress }) => ( 
+const StatCard = ({ icon, label, value, color, onPress }) => (
   <TouchableOpacity style={styles.statCard} onPress={onPress} activeOpacity={0.8} disabled={!onPress}>
     <LinearGradient colors={[color, `${color}DD`]} style={styles.statGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
       <View style={styles.statIconContainer}>
@@ -20,10 +20,10 @@ const StatCard = ({ icon, label, value, color, onPress }) => (
       <Text style={styles.statValue}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
     </LinearGradient>
-  </TouchableOpacity> 
+  </TouchableOpacity>
 );
 
-const ScheduleItem = ({ time, subject, room }) => ( 
+const ScheduleItem = ({ time, subject, room }) => (
   <View style={styles.scheduleItem}>
     <View style={styles.scheduleTime}>
       <Text style={styles.scheduleTimeText}>{time}</Text>
@@ -32,10 +32,10 @@ const ScheduleItem = ({ time, subject, room }) => (
       <Text style={styles.scheduleSubject}>{subject}</Text>
       <Text style={styles.scheduleRoom}>{room}</Text>
     </View>
-  </View> 
+  </View>
 );
 
-const DeadlineItem = ({ title, dueDate }) => ( 
+const DeadlineItem = ({ title, dueDate }) => (
   <View style={styles.deadlineItem}>
     <View style={styles.deadlineIcon}>
       <Ionicons name="time-outline" size={20} color={COLORS.warning} />
@@ -44,7 +44,7 @@ const DeadlineItem = ({ title, dueDate }) => (
       <Text style={styles.deadlineTitle}>{title}</Text>
       <Text style={styles.deadlineDue}>Due: {dueDate}</Text>
     </View>
-  </View> 
+  </View>
 );
 
 export default function HomeScreen({ navigation }) {
@@ -73,39 +73,41 @@ export default function HomeScreen({ navigation }) {
     const attendanceDocRef = doc(db, 'attendance', currentUser.uid);
 
     const unsubUser = onSnapshot(userDocRef, (docSnap) => {
-        if (docSnap.exists()) {
-            const userData = docSnap.data();
-            setUserName(userData.name || 'User');
-            setTasks(userData.tasks || []);
-            if (userData.grades && userData.grades.length > 0) {
-                const validGrades = userData.grades.filter(g => g.sgpa && !isNaN(parseFloat(g.sgpa)));
-                if (validGrades.length > 0) {
-                    const totalSgpa = validGrades.reduce((sum, g) => sum + parseFloat(g.sgpa), 0);
-                    setGpa((totalSgpa / validGrades.length).toFixed(2));
-                } else { setGpa('N/A'); }
-            } else { setGpa('N/A'); }
-        }
+      if (docSnap.exists()) {
+        const userData = docSnap.data();
+        setUserName(userData.name || 'User');
+        setTasks(userData.tasks || []);
+        if (userData.grades && userData.grades.length > 0) {
+          const validGrades = userData.grades.filter(g => g.sgpa && !isNaN(parseFloat(g.sgpa)));
+          if (validGrades.length > 0) {
+            const totalSgpa = validGrades.reduce((sum, g) => sum + parseFloat(g.sgpa), 0);
+            setGpa((totalSgpa / validGrades.length).toFixed(2));
+          } else { setGpa('N/A'); }
+        } else { setGpa('N/A'); }
+      }
     });
+
     const unsubTimetable = onSnapshot(timetableDocRef, (docSnap) => {
-        if (docSnap.exists()) {
-            const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-            const today = dayNames[new Date().getDay()];
-            const fullSchedule = docSnap.data().schedule || [];
-            setTodaysClasses(fullSchedule.filter(item => item.day === today).sort((a, b) => a.time.localeCompare(b.time)));
-        }
+      if (docSnap.exists()) {
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const today = dayNames[new Date().getDay()];
+        const fullSchedule = docSnap.data().schedule || [];
+        setTodaysClasses(fullSchedule.filter(item => item.day === today).sort((a, b) => a.time.localeCompare(b.time)));
+      }
     });
+
     const unsubAttendance = onSnapshot(attendanceDocRef, (docSnap) => {
-        if (docSnap.exists()) {
-            const data = docSnap.data().subjects || {};
-            let totalAttended = 0;
-            let totalClasses = 0;
-            Object.values(data).forEach(sub => {
-                totalAttended += sub.attended;
-                totalClasses += sub.total;
-            });
-            const overallPercentage = totalClasses > 0 ? ((totalAttended / totalClasses) * 100).toFixed(1) + '%' : 'N/A';
-            setAttendance({ overall: overallPercentage, subjects: data });
-        }
+      if (docSnap.exists()) {
+        const data = docSnap.data().subjects || {};
+        let totalAttended = 0;
+        let totalClasses = 0;
+        Object.values(data).forEach(sub => {
+          totalAttended += sub.attended;
+          totalClasses += sub.total;
+        });
+        const overallPercentage = totalClasses > 0 ? ((totalAttended / totalClasses) * 100).toFixed(1) + '%' : 'N/A';
+        setAttendance({ overall: overallPercentage, subjects: data });
+      }
     });
 
     return () => { unsubUser(); unsubTimetable(); unsubAttendance(); };
@@ -114,7 +116,6 @@ export default function HomeScreen({ navigation }) {
   const checkForCurrentLecture = async () => {
     const now = new Date();
     const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-    
     for (const lecture of todaysClasses) {
       const [startTime, endTime] = lecture.time.split(' - ');
       if (currentTime >= startTime && currentTime <= endTime) {
@@ -132,68 +133,59 @@ export default function HomeScreen({ navigation }) {
 
   const handleMarkAttendance = async (attended) => {
     if (!currentLecture || !auth.currentUser) return;
-    
     const subject = currentLecture.subject;
     const attendanceDocRef = doc(db, 'attendance', auth.currentUser.uid);
-    
     const docSnap = await getDoc(attendanceDocRef);
     const subjects = docSnap.exists() ? docSnap.data().subjects : {};
-    
     const currentAttended = subjects[subject]?.attended || 0;
     const currentTotal = subjects[subject]?.total || 0;
-
     const newAttended = attended ? currentAttended + 1 : currentAttended;
     const newTotal = currentTotal + 1;
-
     await setDoc(attendanceDocRef, {
-        subjects: { ...subjects, [subject]: { attended: newAttended, total: newTotal } }
+      subjects: { ...subjects, [subject]: { attended: newAttended, total: newTotal } }
     }, { merge: true });
-
     setShowAttendanceModal(false);
     setCurrentLecture(null);
-
     if ((newAttended / newTotal) < 0.75) {
-      Alert.alert(
-        'Attendance Warning',
-        `Your attendance for ${subject} is now below 75%! (${((newAttended / newTotal) * 100).toFixed(1)}%)`
-      );
+      Alert.alert('Attendance Warning', `Your attendance for ${subject} is now below 75%! (${((newAttended / newTotal) * 100).toFixed(1)}%)`);
     }
   };
-  
-  const handleAddTask = async () => { 
-    if (newTask.trim() === '' || !auth.currentUser) return; 
-    const userDocRef = doc(db, 'users', auth.currentUser.uid); 
-    const taskToAdd = { id: Date.now().toString(), text: newTask, completed: false }; 
-    await updateDoc(userDocRef, { tasks: arrayUnion(taskToAdd) }); 
-    setNewTask(''); 
+
+  const handleAddTask = async () => {
+    if (newTask.trim() === '' || !auth.currentUser) return;
+    const userDocRef = doc(db, 'users', auth.currentUser.uid);
+    const taskToAdd = { id: Date.now().toString(), text: newTask, completed: false };
+    await updateDoc(userDocRef, { tasks: arrayUnion(taskToAdd) });
+    setNewTask('');
   };
 
-  const handleToggleTask = async (taskToToggle) => { 
-    if (!auth.currentUser) return; 
-    const userDocRef = doc(db, 'users', auth.currentUser.uid); 
-    await updateDoc(userDocRef, { tasks: arrayRemove(taskToToggle) }); 
-    await updateDoc(userDocRef, { tasks: arrayUnion({ ...taskToToggle, completed: !taskToToggle.completed }) }); 
+  const handleToggleTask = async (taskToToggle) => {
+    if (!auth.currentUser) return;
+    const userDocRef = doc(db, 'users', auth.currentUser.uid);
+    await updateDoc(userDocRef, { tasks: arrayRemove(taskToToggle) });
+    await updateDoc(userDocRef, { tasks: arrayUnion({ ...taskToToggle, completed: !taskToToggle.completed }) });
   };
 
-  const handleDeleteTask = async (taskToDelete) => { 
-    if (!auth.currentUser) return; 
-    const userDocRef = doc(db, 'users', auth.currentUser.uid); 
-    await updateDoc(userDocRef, { tasks: arrayRemove(taskToDelete) }); 
+  const handleDeleteTask = async (taskToDelete) => {
+    if (!auth.currentUser) return;
+    const userDocRef = doc(db, 'users', auth.currentUser.uid);
+    await updateDoc(userDocRef, { tasks: arrayRemove(taskToDelete) });
   };
 
-  const getGreeting = () => { 
-    const hour = new Date().getHours(); 
-    if (hour < 12) return "Good Morning"; 
-    if (hour < 18) return "Good Afternoon"; 
-    return "Good Evening"; 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good Morning";
+    if (hour < 18) return "Good Afternoon";
+    return "Good Evening";
   };
-  
+
   const completedTasks = tasks.filter(task => task.completed).length;
   const totalTasks = tasks.length;
   const progress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
 
-  const renderListHeader = () => (
+  const renderListHeader = useCallback(() => (
     <>
+      {/* Header, stats, schedule, deadlines, goals */}
       <View style={styles.header}>
         <View>
           <Text style={styles.greeting}>{getGreeting()}</Text>
@@ -206,19 +198,8 @@ export default function HomeScreen({ navigation }) {
       </View>
 
       <View style={styles.statsContainer}>
-        <StatCard 
-            icon="trending-up-outline" 
-            label="Attendance" 
-            value={attendance.overall} 
-            color={COLORS.success} 
-        />
-        <StatCard 
-            icon="school-outline" 
-            label="GPA" 
-            value={gpa} 
-            color={COLORS.primary} 
-            onPress={() => navigation.navigate('Profile')} 
-        />
+        <StatCard icon="trending-up-outline" label="Attendance" value={attendance.overall} color={COLORS.success} />
+        <StatCard icon="school-outline" label="GPA" value={gpa} color={COLORS.primary} onPress={() => navigation.navigate('Profile')} />
       </View>
 
       <Card style={styles.scheduleCard}>
@@ -229,11 +210,9 @@ export default function HomeScreen({ navigation }) {
           </TouchableOpacity>
         </View>
         <View style={styles.scheduleItems}>
-          {todaysClasses.length > 0 ? (
-            todaysClasses.map((item, index) => (
-              <ScheduleItem key={index} time={item.time} subject={item.subject} room={item.room} />
-            ))
-          ) : (
+          {todaysClasses.length > 0 ? todaysClasses.map((item, index) => (
+            <ScheduleItem key={index} time={item.time} subject={item.subject} room={item.room} />
+          )) : (
             <Text style={styles.emptyListText}>No classes scheduled for today. Enjoy!</Text>
           )}
         </View>
@@ -250,49 +229,38 @@ export default function HomeScreen({ navigation }) {
           <Text style={styles.sectionTitle}>Weekly Goals</Text>
           <Text style={styles.progressPercentage}>{Math.round(progress)}%</Text>
         </View>
-        
         <View style={styles.progressBarContainer}>
           <View style={[styles.progressBar, { width: `${progress}%` }]} />
         </View>
-        
-        <View style={styles.progressStats}>
-          <Text style={styles.progressText}>{completedTasks} of {totalTasks} tasks completed</Text>
-        </View>
-
         <View style={styles.addTaskContainer}>
           <View style={styles.inputWrapper}>
             <Ionicons name="add-circle-outline" size={20} color={COLORS.textTertiary} style={styles.inputIcon} />
-            <TextInput 
-              style={styles.taskInput} 
-              placeholder="Add a new goal..." 
+            <TextInput
+              style={styles.taskInput}
+              placeholder="Add a new goal..."
               placeholderTextColor={COLORS.textTertiary}
-              value={newTask} 
-              onChangeText={setNewTask} 
+              value={newTask}
+              onChangeText={setNewTask}
               onSubmitEditing={handleAddTask}
-              multiline={false}
             />
           </View>
           <TouchableOpacity style={styles.addButton} onPress={handleAddTask}>
-            <Ionicons name="arrow-forward" size={20} color={COLORS.surface} />
+            <Ionicons name="add" size={24} color={COLORS.surface} />
           </TouchableOpacity>
         </View>
       </Card>
     </>
-  );
+    // --- THIS IS THE FIX ---
+  ), [userName, gpa, attendance.overall, todaysClasses, navigation, progress, newTask, setNewTask]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <Modal
-        transparent={true}
-        visible={showAttendanceModal}
-        animationType="fade"
-        onRequestClose={() => setShowAttendanceModal(false)}
-      >
+      <Modal transparent visible={showAttendanceModal} animationType="fade" onRequestClose={() => setShowAttendanceModal(false)}>
         <View style={styles.modalOverlay}>
           <Card style={styles.modalContent}>
             <Text style={styles.modalTitle}>Attendance Check</Text>
             <Text style={styles.modalText}>
-              Are you currently in the <Text style={{fontWeight: 'bold'}}>{currentLecture?.subject}</Text> lecture? ({currentLecture?.time})
+              Are you currently in the <Text style={{ fontWeight: 'bold' }}>{currentLecture?.subject}</Text> lecture? ({currentLecture?.time})
             </Text>
             <View style={styles.modalButtons}>
               <TouchableOpacity style={[styles.modalButton, styles.presentButton]} onPress={() => handleMarkAttendance(true)}>
